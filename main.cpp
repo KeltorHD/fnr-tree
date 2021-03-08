@@ -4,8 +4,8 @@ int main()
 {
 	R_tree<int, float, 2, float> tree;
 
-	//using point_t = std::array<float, 2>; /*точка n-мерного пространства*/
-	//using mbr_t = std::array<point_t, 2>; /*левая нижн. точка и правая верхн. точка mbr*/
+	//using point_t = std::array<float, 2>; /*С‚РѕС‡РєР° n-РјРµСЂРЅРѕРіРѕ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР°*/
+	//using mbr_t = std::array<point_t, 2>; /*Р»РµРІР°СЏ РЅРёР¶РЅ. С‚РѕС‡РєР° Рё РїСЂР°РІР°СЏ РІРµСЂС…РЅ. С‚РѕС‡РєР° mbr*/
 
 	//mbr_t m1, m2;
 	//m1[0] = { 1,2 };

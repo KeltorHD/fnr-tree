@@ -13,7 +13,7 @@
 #define R_class_area R_tree<data_type, coord_type, num_dims, float_type, max_nodes, min_nodes>
 
 
-/*класс r-дерева*/
+/*РєР»Р°СЃСЃ r-РґРµСЂРµРІР°*/
 template<
 	typename data_type, 
 	typename coord_type, 
@@ -24,36 +24,36 @@ template<
 class R_tree
 {
 public:
-	using point_t = std::array<coord_type, num_dims>; /*точка n-мерного пространства*/
-	using mbr_t   = std::array<point_t, 2>;           /*левая нижн. точка и правая верхн. точка mbr*/
+	using point_t = std::array<coord_type, num_dims>; /*С‚РѕС‡РєР° n-РјРµСЂРЅРѕРіРѕ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР°*/
+	using mbr_t   = std::array<point_t, 2>;           /*Р»РµРІР°СЏ РЅРёР¶РЅ. С‚РѕС‡РєР° Рё РїСЂР°РІР°СЏ РІРµСЂС…РЅ. С‚РѕС‡РєР° mbr*/
 
 	R_tree();
 	~R_tree() = default;
 
-	R_tree(const R_tree&) = delete;  /*конструкторы и операторы копирования и переноса удалены*/
+	R_tree(const R_tree&) = delete;  /*РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂС‹ Рё РѕРїРµСЂР°С‚РѕСЂС‹ РєРѕРїРёСЂРѕРІР°РЅРёСЏ Рё РїРµСЂРµРЅРѕСЃР° СѓРґР°Р»РµРЅС‹*/
 	R_tree(R_tree&&) = delete;
 	R_tree operator=(const R_tree&) = delete;
 	R_tree operator=(R_tree&&) = delete;
 
-	/*основные функции*/
-	void insert(const data_type& data, const mbr_t& mbr); /*вставка нового значения в дерево с заданным mbr*/
+	/*РѕСЃРЅРѕРІРЅС‹Рµ С„СѓРЅРєС†РёРё*/
+	void insert(const data_type& data, const mbr_t& mbr); /*РІСЃС‚Р°РІРєР° РЅРѕРІРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ РІ РґРµСЂРµРІРѕ СЃ Р·Р°РґР°РЅРЅС‹Рј mbr*/
 
 private:
 	struct node;
-	using node_ptr_t        = std::shared_ptr<node>;                         /*тип указателя на node*/
-	using child_array_ptr_t = std::array<node_ptr_t, max_nodes>;             /*массив указателей на потомков*/
-	using data_info_t       = std::pair<data_type, mbr_t>;                   /*полная информация об объекте*/
-	using data_array_t      = std::array<data_info_t, max_nodes>;            /*массив id на data*/
-	using data_node_t       = std::variant<child_array_ptr_t, data_array_t>; /*указатели на потомков или массив данных*/
+	using node_ptr_t        = std::shared_ptr<node>;                         /*С‚РёРї СѓРєР°Р·Р°С‚РµР»СЏ РЅР° node*/
+	using child_array_ptr_t = std::array<node_ptr_t, max_nodes>;             /*РјР°СЃСЃРёРІ СѓРєР°Р·Р°С‚РµР»РµР№ РЅР° РїРѕС‚РѕРјРєРѕРІ*/
+	using data_info_t       = std::pair<data_type, mbr_t>;                   /*РїРѕР»РЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ РѕР± РѕР±СЉРµРєС‚Рµ*/
+	using data_array_t      = std::array<data_info_t, max_nodes>;            /*РјР°СЃСЃРёРІ id РЅР° data*/
+	using data_node_t       = std::variant<child_array_ptr_t, data_array_t>; /*СѓРєР°Р·Р°С‚РµР»Рё РЅР° РїРѕС‚РѕРјРєРѕРІ РёР»Рё РјР°СЃСЃРёРІ РґР°РЅРЅС‹С…*/
 
 	node_ptr_t root;
 
 	struct node
 	{
-		mbr_t mbr{};                             /*минимальный ограничивающий прямоугольник n-мерного пространства*/
-		size_t count_array{ 0 };                 /*количество данных или указателей в массиве*/
-		data_node_t data{ child_array_ptr_t{} }; /*если не лист, храним ptr_array_t*/
-		bool leaf{ false };                      /*лист или нет?*/
+		mbr_t mbr{};                             /*РјРёРЅРёРјР°Р»СЊРЅС‹Р№ РѕРіСЂР°РЅРёС‡РёРІР°СЋС‰РёР№ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє n-РјРµСЂРЅРѕРіРѕ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР°*/
+		size_t count_array{ 0 };                 /*РєРѕР»РёС‡РµСЃС‚РІРѕ РґР°РЅРЅС‹С… РёР»Рё СѓРєР°Р·Р°С‚РµР»РµР№ РІ РјР°СЃСЃРёРІРµ*/
+		data_node_t data{ child_array_ptr_t{} }; /*РµСЃР»Рё РЅРµ Р»РёСЃС‚, С…СЂР°РЅРёРј ptr_array_t*/
+		bool leaf{ false };                      /*Р»РёСЃС‚ РёР»Рё РЅРµС‚?*/
 
 		node() = default;
 		node(bool leaf)
@@ -64,17 +64,17 @@ private:
 		}
 	};
 
-	/*функции для работы с деревом*/
-	node_ptr_t choice_leaf(const mbr_t& mbr) const;                                       /*поиск листа, в который можно поместить новое значение*/
-	node_ptr_t node_division(node_ptr_t l1, const data_type& data, const mbr_t& mbr);     /*деление узла на 2 по квадратичному алгоритму Гуттмана*/
-	void       correct_tree(node_ptr_t n1, node_ptr_t n2);                                /*корректировка дерева*/
-	std::pair<data_info_t, data_info_t> get_first_pair(std::vector<const data_info_t&>& q);/*выбор пары из множества значений*/
-	data_info_t get_next(node_ptr_t l1, node_ptr_t l2, std::vector<const data_info_t&>& q);/*выбор следующего элемента*/
+	/*С„СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РґРµСЂРµРІРѕРј*/
+	node_ptr_t choice_leaf(const mbr_t& mbr) const;                                       /*РїРѕРёСЃРє Р»РёСЃС‚Р°, РІ РєРѕС‚РѕСЂС‹Р№ РјРѕР¶РЅРѕ РїРѕРјРµСЃС‚РёС‚СЊ РЅРѕРІРѕРµ Р·РЅР°С‡РµРЅРёРµ*/
+	node_ptr_t node_division(node_ptr_t l1, const data_type& data, const mbr_t& mbr);     /*РґРµР»РµРЅРёРµ СѓР·Р»Р° РЅР° 2 РїРѕ РєРІР°РґСЂР°С‚РёС‡РЅРѕРјСѓ Р°Р»РіРѕСЂРёС‚РјСѓ Р“СѓС‚С‚РјР°РЅР°*/
+	void       correct_tree(node_ptr_t n1, node_ptr_t n2);                                /*РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° РґРµСЂРµРІР°*/
+	std::pair<data_info_t, data_info_t> get_first_pair(std::vector<const data_info_t&>& q);/*РІС‹Р±РѕСЂ РїР°СЂС‹ РёР· РјРЅРѕР¶РµСЃС‚РІР° Р·РЅР°С‡РµРЅРёР№*/
+	data_info_t get_next(node_ptr_t l1, node_ptr_t l2, std::vector<const data_info_t&>& q);/*РІС‹Р±РѕСЂ СЃР»РµРґСѓСЋС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р°*/
 
-	/*функции для работы с mbr*/
-	mbr_t sum_mbr(const mbr_t& m1, const mbr_t& m2) const;              /*новый mbr из 2-х*/
-	coord_type calc_square(const mbr_t& m) const;                       /*вычисление площади */
-	coord_type diff_square_mbr(const mbr_t& m1, const mbr_t& m2) const; /*разница в площадях двух mbr*/
+	/*С„СѓРЅРєС†РёРё РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ mbr*/
+	mbr_t sum_mbr(const mbr_t& m1, const mbr_t& m2) const;              /*РЅРѕРІС‹Р№ mbr РёР· 2-С…*/
+	coord_type calc_square(const mbr_t& m) const;                       /*РІС‹С‡РёСЃР»РµРЅРёРµ РїР»РѕС‰Р°РґРё */
+	coord_type diff_square_mbr(const mbr_t& m1, const mbr_t& m2) const; /*СЂР°Р·РЅРёС†Р° РІ РїР»РѕС‰Р°РґСЏС… РґРІСѓС… mbr*/
 };
 
 R_template
@@ -115,8 +115,8 @@ inline typename R_class_area::mbr_t R_class_area::sum_mbr(const mbr_t& m1, const
 	point_t ld{}, ru{};
 	for (size_t i = 0; i < num_dims; i++)
 	{
-		ld[i] = std::min(m1[0][i], m2[0][i]); /*левая нижняя точка*/
-		ru[i] = std::max(m1[1][i], m2[1][i]); /*правая верхняя точка*/
+		ld[i] = std::min(m1[0][i], m2[0][i]); /*Р»РµРІР°СЏ РЅРёР¶РЅСЏСЏ С‚РѕС‡РєР°*/
+		ru[i] = std::max(m1[1][i], m2[1][i]); /*РїСЂР°РІР°СЏ РІРµСЂС…РЅСЏСЏ С‚РѕС‡РєР°*/
 	}
 	return mbr_t{ ld,ru };
 }
@@ -145,42 +145,42 @@ inline void R_class_area::insert(const data_type& data, const mbr_t& mbr)
 	node_ptr_t l{ choice_leaf(mbr) };
 	node_ptr_t new_node{ nullptr };
 
-	if (l->count_array < max_nodes) /*если значение помещается в текущий узел*/
+	if (l->count_array < max_nodes) /*РµСЃР»Рё Р·РЅР°С‡РµРЅРёРµ РїРѕРјРµС‰Р°РµС‚СЃСЏ РІ С‚РµРєСѓС‰РёР№ СѓР·РµР»*/
 	{
 		data_array_t& arr{ std::get<data_array_t>(l->data) };
 		arr[l->count_array].first = data;
 		arr[l->count_array].second = mbr;
 	}
-	else /*делим узел на два*/
+	else /*РґРµР»РёРј СѓР·РµР» РЅР° РґРІР°*/
 	{
 		new_node = this->node_division(l, data, mbr);
 	}
-	this->correct_tree(l, new_node); /*корректируем дерево*/
+	this->correct_tree(l, new_node); /*РєРѕСЂСЂРµРєС‚РёСЂСѓРµРј РґРµСЂРµРІРѕ*/
 }
 
 R_template
 inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t l1, const data_type& data, const mbr_t& mbr)
 {
-	/*подготовка*/
+	/*РїРѕРґРіРѕС‚РѕРІРєР°*/
 	node_ptr_t l2(std::make_shared<node>(true));
 	data_array_t& l1_data{ std::get<data_array_t>(l1->data) };
 	data_array_t& l2_data{ std::get<data_array_t>(l2->data) };
-	std::vector<const data_info_t&> q{ l1_data.cbegin(), l1_data.cend() }; /*заполнение o*/
+	std::vector<const data_info_t&> q{ l1_data.cbegin(), l1_data.cend() }; /*Р·Р°РїРѕР»РЅРµРЅРёРµ o*/
 	q.push_back(std::make_pair(data, mbr));
 	size_t m{ q.size() };
-	for (size_t i = 0; i < max_nodes; i++) /*очистка l1*/
+	for (size_t i = 0; i < max_nodes; i++) /*РѕС‡РёСЃС‚РєР° l1*/
 	{
 		l1_data[i].first = data_type{};
 		l1_data[i].second = mbr_t{};
 	}
 	l1->count_array = 0;
 
-	/*первые значения*/
+	/*РїРµСЂРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ*/
 	std::pair<data_info_t, data_info_t> obj = this->get_first_pair(q);
 	l1_data[l1->count_array] = obj.first;
 	l2_data[l2->count_array] = obj.second;
 
-	/*остальные значения*/
+	/*РѕСЃС‚Р°Р»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ*/
 	while (true)
 	{
 		size_t n{ q.size() };
