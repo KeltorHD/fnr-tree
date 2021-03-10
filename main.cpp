@@ -1,25 +1,34 @@
 #include "rtree.hpp"
 
+#include <iostream>
+
 int main()
 {
-	R_tree<int, float, 2, float> tree;
+	system("chcp 65001>nul");
+	using Tree = R_tree<int, float, 2, float, 4, 2>;
 
-	//using point_t = std::array<float, 2>; /*точка n-мерного пространства*/
-	//using mbr_t = std::array<point_t, 2>; /*левая нижн. точка и правая верхн. точка mbr*/
+	Tree tree;
 
-	//mbr_t m1, m2;
-	//m1[0] = { 1,2 };
-	//m1[1] = { 4,4 };
-	//m2[0] = { 2,1 };
-	//m2[1] = { 4,3 };
-	//float size1{ std::abs(m1[0][0] - m1[1][0]) }, size2{ std::abs(m2[0][0] - m2[1][0]) };
-	//for (size_t i = 1; i < 2; i++)
-	//{
-	//	size1 *= std::abs(m1[0][i] - m1[1][i]);
-	//	size2 *= std::abs(m2[0][i] - m2[1][i]);
-	//}
-	//float s = std::abs(size1 - size2);
-	//std::cout << "s:" << s << std::endl;
+	tree.insert(1, Tree::mbr_t{ {1,1},{2,2} });
+	tree.print();
+	tree.insert(2, Tree::mbr_t{ {3,3},{4,4} });
+	tree.print();
+	tree.insert(3, Tree::mbr_t{ {5,5},{6,6} });
+	tree.print();
+	tree.insert(4, Tree::mbr_t{ {7,7},{8,8} });
+	tree.print();
+	tree.insert(5, Tree::mbr_t{ {9,9},{10,10} });
+	tree.print();
+	tree.insert(6, Tree::mbr_t{ {11,11},{12,12} });
+	tree.print();
+	tree.insert(7, Tree::mbr_t{ {13,13},{14,14} });
+	tree.print();
+	tree.insert(8, Tree::mbr_t{ {15,15},{16,16} });
+	tree.print();
+	tree.insert(9, Tree::mbr_t{ {17,17},{18,18} });
+	tree.print();
+	
+	tree.print();
 
 	return 0;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <memory>
+//#include <memory>
 #include <array>
 #include <vector>
 #include <utility>
@@ -24,8 +24,16 @@ template<
 class R_tree
 {
 public:
-	using point_t = std::array<coord_type, num_dims>; /*точка n-мерного пространства*/
-	using mbr_t   = std::array<point_t, 2>;           /*левая нижн. точка и правая верхн. точка mbr*/
+	/*точка n-мерного пространства*/
+	using point_t = std::array<coord_type, num_dims>;
+	/*левая нижн. точка и правая верхн. точка mbr*/
+	struct  mbr_t
+	{
+		/*первая точка*/
+		point_t ld;
+		/*вторая точка*/
+		point_t ru;
+	};        
 
 	R_tree();
 	~R_tree() = default;
@@ -37,6 +45,9 @@ public:
 
 	/*основные функции*/
 	void insert(const data_type& data, const mbr_t& mbr); /*вставка нового значения в дерево с заданным mbr*/
+
+	/*дебаг: вывод дерева*/
+	void print() const;
 
 private:
 	struct node;
@@ -64,30 +75,35 @@ private:
 		}
 	};
 
+	/*дебаг: печать дерева*/
+	void print(const node_ptr_t& to_print, int& level) const;
+
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
 	node_ptr_t choice_leaf(const mbr_t& mbr) const;
 
 	/*деление узла на 2 по квадратичному алгоритму Гуттмана (1984)*/
 	node_ptr_t node_division(node_ptr_t l1, const data_type& data, const mbr_t& mbr);
+	node_ptr_t node_division(node_ptr_t l1, node_ptr_t);
 
 	/*корректировка дерева*/
 	void correct_tree(node_ptr_t l1, node_ptr_t l2);                                 
 
 	/*выбор пары из множества значений*/
-	std::pair<data_info_t, data_info_t> get_first_pair(std::vector<const data_info_t&>& q);
+	std::pair<data_info_t, data_info_t> get_first_pair(std::vector<data_info_t>& q);
 
 	/*выбор следующего элемента по алгоритму Гуттмана (1984)*/
-	data_info_t get_next(node_ptr_t l1, node_ptr_t l2, std::vector<const data_info_t&>& q);
+	data_info_t get_next(node_ptr_t l1, node_ptr_t l2, std::vector<data_info_t>& q);
 
 	/*нахождение родителя элемента*/
-	node_ptr_t get_parent(node_ptr_t l) const;                                             
+	node_ptr_t get_parent(node_ptr_t where, const node_ptr_t& what, const mbr_t& mbr) const;
 	//mbr_t      correct_mbr(node_ptr_t)
 
 	/*функции для работы с mbr*/
 	mbr_t sum_mbr(const mbr_t& m1, const mbr_t& m2) const;              /*новый mbr из 2-х*/
 	coord_type calc_square(const mbr_t& m) const;                       /*вычисление площади */
 	coord_type diff_square_mbr(const mbr_t& m1, const mbr_t& m2) const; /*разница в площадях двух mbr*/
+	bool include_mbr(const mbr_t& where_find, const mbr_t& what_find) const;/*включает ли один mbr другой*/
 };
 
 R_template
@@ -103,7 +119,7 @@ inline typename R_class_area::node_ptr_t R_class_area::choice_leaf(const mbr_t& 
 	while (!tmp->leaf)
 	{
 		const child_array_ptr_t& ptrs{ std::get<child_array_ptr_t>(tmp->data) };
-		coord_type min_diff{ std::numeric_limits<size_t>::max() };
+		coord_type min_diff{ std::numeric_limits<coord_type>::max() };
 		coord_type cur_diff{};
 		size_t need_child{};
 		for (size_t i = 0; i < tmp->count_array; i++)
@@ -126,8 +142,8 @@ inline typename R_class_area::mbr_t R_class_area::sum_mbr(const mbr_t& m1, const
 	point_t ld{}, ru{};
 	for (size_t i = 0; i < num_dims; i++)
 	{
-		ld[i] = std::min(m1[0][i], m2[0][i]); /*левая нижняя точка*/
-		ru[i] = std::max(m1[1][i], m2[1][i]); /*правая верхняя точка*/
+		ld[i] = std::min(m1.ld[i], m2.ld[i]); /*левая нижняя точка*/
+		ru[i] = std::max(m1.ru[i], m2.ru[i]); /*правая верхняя точка*/
 	}
 	return mbr_t{ ld,ru };
 }
@@ -141,14 +157,24 @@ inline coord_type R_class_area::diff_square_mbr(const mbr_t& m1, const mbr_t& m2
 R_template
 inline coord_type R_class_area::calc_square(const mbr_t& m) const
 {
-	coord_type square{ std::abs(m[0][0] - m[1][0]) };
+	coord_type square{ std::abs(m.ld[0] - m.ru[0]) };
 	for (size_t i = 1; i < num_dims; i++)
 	{
-		square *= std::abs(m[0][i] - m[1][i]);
+		square *= std::abs(m.ld[i] - m.ru[i]);
 	}
 	return std::abs(square);
 }
 
+R_template
+inline bool R_class_area::include_mbr(const mbr_t& where_find, const mbr_t& what_find) const
+{
+	for (size_t i = 0; i < num_dims; i++)
+	{
+		if (!(where_find.ld[i] <= what_find.ld[i] && where_find.ru[i] >= what_find.ru[i]))
+			return false;
+	}
+	return true;
+}
 
 R_template
 inline void R_class_area::insert(const data_type& data, const mbr_t& mbr)
@@ -178,7 +204,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 	node_ptr_t l2(std::make_shared<node>(true)); /*выделение памяти на лист*/
 	data_array_t& l1_data{ std::get<data_array_t>(l1->data) };
 	data_array_t& l2_data{ std::get<data_array_t>(l2->data) };
-	std::vector<const data_info_t&> q{ l1_data.cbegin(), l1_data.cend() }; /*заполнение o*/
+	std::vector<data_info_t> q{ l1_data.begin(), l1_data.end() }; /*заполнение o*/
 	q.push_back(std::make_pair(data, mbr));
 	for (size_t i = 0; i < max_nodes; i++) /*очистка l1*/
 	{
@@ -246,17 +272,14 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 			l2->mbr = this->sum_mbr(l2->mbr, o_next.second); /*изменяем mbr всего листа*/
 		}
 	}
-
-	/*корректировка дерева*/
-	this->correct_tree(l1, l2);
 }
 
 R_template
 inline std::pair<typename R_class_area::data_info_t, typename R_class_area::data_info_t> 
-R_class_area::get_first_pair(std::vector<const data_info_t&>& q)
+R_class_area::get_first_pair(std::vector<data_info_t>& q)
 {
 	size_t o1_index{}, o2_index{};
-	coord_type max_square{ std::numeric_limits<size_t>::min() };
+	coord_type max_square{ std::numeric_limits<coord_type>::min() };
 	std::pair<data_info_t, data_info_t> ret{};
 	for (size_t i = 0; i < q.size(); i++)
 	{
@@ -283,11 +306,11 @@ R_class_area::get_first_pair(std::vector<const data_info_t&>& q)
 
 R_template
 inline typename R_class_area::data_info_t 
-R_class_area::get_next(node_ptr_t l1, node_ptr_t l2, std::vector<const data_info_t&>& q)
+R_class_area::get_next(node_ptr_t l1, node_ptr_t l2, std::vector<data_info_t>& q)
 {
 	size_t o_index{};
 	data_info_t o{};
-	coord_type max_diff_square{ std::numeric_limits<size_t>::min() };
+	coord_type max_diff_square{ std::numeric_limits<coord_type>::min() };
 	for (size_t i = 0; i < q.size(); i++)
 	{
 		coord_type d1{ this->calc_square(this->sum_mbr(l1->mbr,q[i].second)) - this->calc_square(l1->mbr) };
@@ -333,27 +356,162 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 		}
 
 		/*если v1 не корень*/
-		node_ptr_t p{ this->get_parent(v1) };
+		node_ptr_t p{ this->get_parent(this->root, v1, v1->mbr) }; /*находим родителя v1*/
 		child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) };
-		child_info_t& info{ *(std::find(rref.begin(), rref.end(), [&v1](const child_info_t& inf) {return inf.first == v1; })) }; /*находим запись о v1*/
+		child_info_t info{rref[0]}; /*находим запись о v1*/
+		for (size_t i = 1; i < p->count_array && info.first != v1; i++)
+		{
+			info = rref[i];
+		}
 		info.second = v1->mbr; /*обновляем mbr у родителя v1*/
 		v1 = p; /*изменяем v1*/
 
 		if (v2 != nullptr)
 		{
+			child_info_t pv2{ v2, v2->mbr };
 			if (p->count_array < max_nodes) /*если новая запись влезает*/
 			{
 				child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) };
-				rref[p->count_array].first = v2;
-				rref[p->count_array].second = v2->mbr;
+				rref[p->count_array] = pv2;
 				p->count_array++;
 			}
 			else /*делим предка*/
 			{
-				data_info_t di{ std::get<data_info_t>(v2->data) };
-				v2.reset();
-				v2 = this->node_division(p, di.first, di.second); /*пересоздаем v2, разделяем данные в p и v2*/
+				//v2 = this->node_division(p, pv2.first);
+				//data_array_t di = std::get<data_array_t>(v2->data);
+				//v2.reset();
+				//v2 = this->node_division(p, di, di.second); /*пересоздаем v2, разделяем данные в p и v2*/
 			}
 		}
 	}
+}
+
+R_template
+inline typename R_class_area::node_ptr_t R_class_area::get_parent(node_ptr_t where, const node_ptr_t& what, const mbr_t& mbr) const
+{
+	if (!where->leaf)
+	{
+		child_array_ptr_t& ref{ std::get<child_array_ptr_t>(where->data) };
+		for (size_t i = 0; i < where->count_array; i++)
+		{
+			if (ref[i].first != what && this->include_mbr(ref[i].second, mbr)) /*если mbr содержит нужный, но сама запись не та*/
+			{
+				return this->get_parent(ref[i].first, what, mbr); /*ныряем в рекурсию*/
+			}
+			else if (ref[i].first == what && this->include_mbr(ref[i].second, mbr)) /*если нашли нужную запись*/
+			{
+				return where; /*возвращаем предка нужной записи*/
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+R_template
+inline void R_class_area::print() const
+{
+	std::cout << "Дерево.\nВершина: " << (this->root->leaf ? "лист. " : "узел. ") << " mbr: (";
+	for (size_t j = 0; j < 2; j++)
+	{
+		std::cout << "(";
+		for (size_t k = 0; k < num_dims; k++)
+		{
+			if (k != 0)
+				std::cout << ", ";
+			std::cout << (j == 0 ? this->root->mbr.ld[k] : this->root->mbr.ru[k]);
+		}
+		std::cout << (j == 0 ? "), " : ")");
+	}
+	std::cout << "). " << this->root->count_array << (this->root->leaf ? " объектов. " : " ссылок на потомки. ") << "Данные: " << std::endl;
+
+	if (this->root->leaf)
+	{
+		for (size_t i = 0; i < this->root->count_array; i++)
+		{
+			std::cout << "\tОбъект: " << std::get<data_array_t>(this->root->data)[i].first << ", mbr: ";
+			for (size_t j = 0; j < 2; j++)
+			{
+				std::cout << "(";
+				for (size_t k = 0; k < num_dims; k++)
+				{
+					if (k != 0)
+						std::cout << ", ";
+					std::cout << (j == 0 ? std::get<data_array_t>(this->root->data)[i].second.ld[k] : std::get<data_array_t>(this->root->data)[i].second.ru[k]);
+				}
+				std::cout << ") ";
+			}
+			std::cout << std::endl;
+		}
+	}
+	else
+	{
+		int level{ 1 };
+
+		for (size_t i = 0; i < this->root->count_array; i++)
+		{
+			this->print(std::get<child_array_ptr_t>(this->root->data)[i].first, level);
+		}
+	}
+}
+
+R_template
+inline void R_class_area::print(const node_ptr_t& to_print, int& level) const
+{
+	for (size_t l = 0; l < level; l++)
+	{
+		std::cout << "    ";
+	}
+	std::cout << (to_print->leaf ? "Лист. " : "Узел. ") << " mbr: (";
+	for (size_t j = 0; j < 2; j++)
+	{
+		std::cout << "(";
+		for (size_t k = 0; k < num_dims; k++)
+		{
+			if (k != 0)
+				std::cout << ", ";
+			std::cout << (j == 0 ? to_print->mbr.ld[k] : to_print->mbr.ru[k]);
+		}
+		std::cout << (j == 0 ? "), " : ")");
+	}
+	std::cout << "). ";
+	std::cout << to_print->count_array << (to_print->leaf ? " объектов. " : " ссылок на потомки. ") << "Данные: " << std::endl;
+
+	if (to_print->leaf)
+	{
+		for (size_t i = 0; i < to_print->count_array; i++)
+		{
+			for (size_t l = 0; l < level + 1; l++)
+			{
+				std::cout << "    ";
+			}
+			std::cout << "Объект: " << std::get<data_array_t>(to_print->data)[i].first << ", mbr: (";
+			for (size_t j = 0; j < 2; j++)
+			{
+				std::cout << "(";
+				for (size_t k = 0; k < num_dims; k++)
+				{
+					if (k != 0)
+						std::cout << ", ";
+					std::cout << (j == 0 ? std::get<data_array_t>(to_print->data)[i].second.ld[k] : std::get<data_array_t>(to_print->data)[i].second.ru[k]);
+				}
+				std::cout << (j == 0 ? "), " : ")");
+			}
+			std::cout << ")" << std::endl;
+		}
+	}
+	else
+	{
+		level++;
+		for (size_t i = 0; i < to_print->count_array; i++)
+		{
+			this->print(std::get<child_array_ptr_t>(to_print->data)[i].first, level);
+		}
+	}
+}
+
+R_template
+inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t l1, node_ptr_t)
+{
+	return node_ptr_t();
 }
