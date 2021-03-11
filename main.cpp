@@ -7,6 +7,12 @@ int main()
 	system("chcp 65001>nul");
 	using Tree = R_tree<int, float, 2, float, 4, 2>;
 
+	std::variant<int, std::string> var{ 5 };
+	int& i{ std::get<int>(var) };
+	i = 10;
+	std::cout << std::get<int>(var) << " " << i << std::endl;
+
+
 	Tree tree;
 
 	tree.insert(1, Tree::mbr_t{ {1,1},{2,2} });
