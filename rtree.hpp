@@ -1,6 +1,6 @@
 #pragma once
 
-//#include <memory>
+#include <exception>
 #include <array>
 #include <vector>
 #include <utility>
@@ -8,6 +8,8 @@
 #include <variant>
 #include <limits>
 #include <iostream>
+
+static int count_shared{ 0 };
 
 #define R_template   template<typename data_type, typename coord_type, size_t num_dims, typename float_type, size_t max_nodes, size_t min_nodes>
 #define R_class_area R_tree<data_type, coord_type, num_dims, float_type, max_nodes, min_nodes>
@@ -45,7 +47,11 @@ public:
 	R_tree operator=(R_tree&&) = delete;
 
 	/*основные функции*/
-	void insert(const data_type& data, const mbr_t& mbr); /*вставка нового значения в дерево с заданным mbr*/
+	/*вставка нового значения в дерево с заданным mbr*/
+	void insert(const data_type& data, const mbr_t& mbr);
+
+	/*поиск нужного объекта по его mbr*/
+	//const data_type& find(const mbr_t& mbr, bool& success) const;
 
 	/*дебаг: вывод дерева*/
 	void print() const;
@@ -85,17 +91,22 @@ private:
 		node(bool leaf)
 			: leaf(leaf)
 		{
+			count_shared++;
 			if (this->leaf) this->data = data_array_t{};
 			else this->data = child_array_ptr_t{};
 		}
 		~node()
 		{
-			std::cout << (this->leaf ? "Лист " : "Узел ") << this << " уничтожен" << std::endl;
+			std::cout << (this->leaf ? "Лист " : "Узел ") << count_shared << " адрес " << this << " уничтожен" << std::endl;
+			count_shared--;
 		}
 	};
 
 	/*дебаг: печать дерева*/
 	void print(const node_ptr_t& to_print, size_t& level) const;
+
+	/*поиск нужного объекта по его mbr в вершине v*/
+	//const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
 
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
@@ -256,7 +267,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 		{
 			return l2;
 		}
-		else if (min_nodes - n1 >= n)
+		else if (int(min_nodes) - int(n1) >= int(n))
 		{
 			for (size_t i = 0; i < q.size(); i++)
 			{
@@ -266,7 +277,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 			}
 			return l2;
 		}
-		else if (min_nodes - n2 >= n)
+		else if (int(min_nodes) - int(n2) >= int(n))
 		{
 			for (size_t i = 0; i < q.size(); i++)
 			{
@@ -300,6 +311,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 R_template
 inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t l1, child_info_t new_child)
 {
+
 	/*подготовка*/
 	node_ptr_t l2(std::make_shared<node>(false)); /*выделение памяти на узел*/
 	child_array_ptr_t& l1_data{ std::get<child_array_ptr_t>(l1->data) };
@@ -334,7 +346,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 		{
 			return l2;
 		}
-		else if (min_nodes - n1 >= n)
+		else if (int(min_nodes) - int(n1) >= int(n))
 		{
 			for (size_t i = 0; i < q.size(); i++)
 			{
@@ -344,7 +356,7 @@ inline typename R_class_area::node_ptr_t R_class_area::node_division(node_ptr_t 
 			}
 			return l2;
 		}
-		else if (min_nodes - n2 >= n)
+		else if (int(min_nodes) - int(n2) >= int(n))
 		{
 			for (size_t i = 0; i < q.size(); i++)
 			{
@@ -537,11 +549,12 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 			}
 			else /*делим предка*/
 			{
+				/*решаем косяк с mbr*/
+				for (size_t i = 0; i < p->count_array; i++)
+				{
+					rref[i].mbr = rref[i].child->mbr;
+				}
 				v2 = this->node_division(p, pv2);
-				//v2 = this->node_division(p, pv2.child);
-				//data_array_t di = std::get<data_array_t>(v2->data);
-				//v2.reset();
-				//v2 = this->node_division(p, di, di.second); /*пересоздаем v2, разделяем данные в p и v2*/
 			}
 		}
 	}
@@ -638,3 +651,41 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 		level--;
 	}
 }
+
+//R_template
+//inline const data_type& R_class_area::find(const mbr_t& mbr, bool& success) const
+//{
+//	if (this->root->count_array)
+//		return this->find(this->root, mbr, success);
+//	
+//	success = false;
+//	return data_type{};
+//}
+
+//R_template
+//inline const data_type& R_class_area::find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const
+//{
+//	if (!v->leaf)
+//	{
+//		for (size_t i = 0; i < v->count_array; i++)
+//		{
+//			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr))
+//			{
+//				return this->find(std::get<child_array_ptr_t>(v->data)[i].child, mbr, success);
+//			}
+//		}
+//	}
+//	else
+//	{
+//		for (size_t i = 0; i < v->count_array; i++)
+//		{
+//			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
+//			{
+//				success = true;
+//				return std::get<data_array_t>(v->data)[i].data;
+//			}
+//		}
+//		success = false;
+//		return data_type{};
+//	}
+//}
