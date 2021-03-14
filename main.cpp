@@ -22,7 +22,7 @@ int main()
 	{
 		points.push_back(Tree::mbr_t{ { float(i) * (i + 1) + 1, float(i) * (i + 1) + 1 } , { float(i) * (i + 2),float(i) * (i + 2) } });
 	}
-	for (size_t i = 20; i <= 25; i++)
+	for (size_t i = 20; i <= 100; i++)
 	{
 		points.push_back(Tree::mbr_t{ { float(i) * (i + 1) + 1, float(i) * (i + 1) + 1 } , { float(i) * (i + 2),float(i) * (i + 2) } });
 	}

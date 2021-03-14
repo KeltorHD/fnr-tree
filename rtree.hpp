@@ -51,7 +51,7 @@ public:
 	void insert(const data_type& data, const mbr_t& mbr);
 
 	/*поиск нужного объекта по его mbr*/
-	//const data_type& find(const mbr_t& mbr, bool& success) const;
+	const data_type& find(const mbr_t& mbr, bool& success) const;
 
 	/*дебаг: вывод дерева*/
 	void print() const;
@@ -74,6 +74,8 @@ private:
 
 	/*корень дерева*/
 	node_ptr_t root;
+	/*дата, которая выводится при ошибке*/
+	data_type error_data{};
 
 	/*структура узла*/
 	struct node
@@ -106,7 +108,7 @@ private:
 	void print(const node_ptr_t& to_print, size_t& level) const;
 
 	/*поиск нужного объекта по его mbr в вершине v*/
-	//const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
+	const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
 
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
@@ -527,12 +529,8 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 
 		/*если v1 не корень*/
 		node_ptr_t p{ this->get_parent(this->root, v1, v1->mbr) }; /*находим родителя v1*/
-		child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) };
-		child_info_t info{rref[0]}; /*находим запись о v1*/
-		for (size_t i = 1; i < p->count_array && info.child != v1; i++)
-		{
-			info = rref[i];
-		}
+		child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) }; /*находим запись о v1 в p*/
+		child_info_t& info{ *std::find_if(rref.begin(), rref.begin() + p->count_array, [&v1](const child_info_t& v) {return v1 == v.child; }) };
 		info.mbr = v1->mbr; /*обновляем mbr в записи у родителя v1*/
 		p->mbr = this->sum_mbr(p->mbr, v1->mbr); /*обновляем общий mbr у предка*/
 		v1 = p; /*изменяем v1*/
@@ -545,15 +543,11 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 				child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) };
 				rref[p->count_array] = pv2;
 				p->count_array++;
+				p->mbr = this->sum_mbr(p->mbr, pv2.mbr); /*обновляем общий mbr у предка*/
 				v2 = nullptr;
 			}
 			else /*делим предка*/
 			{
-				/*решаем косяк с mbr*/
-				for (size_t i = 0; i < p->count_array; i++)
-				{
-					rref[i].mbr = rref[i].child->mbr;
-				}
 				v2 = this->node_division(p, pv2);
 			}
 		}
@@ -617,6 +611,31 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 	}
 	std::cout << "). ";
 	std::cout << to_print->count_array << (to_print->leaf ? " объектов. " : " ссылок на потомки. ") << "Данные: " << std::endl;
+	for (size_t l = 0; l < level; l++)
+	{
+		std::cout << "    ";
+	}
+	for (size_t i = 0; i < to_print->count_array; i++)
+	{
+		std::cout << "(";
+		for (size_t j = 0; j < 2; j++)
+		{
+			std::cout << "(";
+			for (size_t k = 0; k < num_dims; k++)
+			{
+				if (k != 0)
+					std::cout << ", ";
+
+				if (to_print->leaf)
+					std::cout << (j == 0 ? std::get<data_array_t>(to_print->data)[i].mbr.ld[k] : std::get<data_array_t>(to_print->data)[i].mbr.ru[k]);
+				else
+					std::cout << (j == 0 ? std::get<child_array_ptr_t>(to_print->data)[i].mbr.ld[k] : std::get<child_array_ptr_t>(to_print->data)[i].mbr.ru[k]);
+			}
+			std::cout << (j == 0 ? "), " : ")");
+		}
+		std::cout << "). ";
+	}
+	std::cout << std::endl;
 
 	if (to_print->leaf)
 	{
@@ -652,40 +671,78 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 	}
 }
 
-//R_template
-//inline const data_type& R_class_area::find(const mbr_t& mbr, bool& success) const
-//{
-//	if (this->root->count_array)
-//		return this->find(this->root, mbr, success);
-//	
-//	success = false;
-//	return data_type{};
-//}
+R_template
+inline const data_type& R_class_area::find(const mbr_t& mbr, bool& success) const
+{
+	if (this->include_mbr(this->root->mbr, mbr))
+	{
+		if (this->root->count_array)
+			return this->find(this->root, mbr, success);
+				
+		success = false;
+		return this->error_data;
+	}
+	
+	success = false;
+	return this->error_data;
+}
 
-//R_template
-//inline const data_type& R_class_area::find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const
-//{
-//	if (!v->leaf)
-//	{
-//		for (size_t i = 0; i < v->count_array; i++)
-//		{
-//			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr))
-//			{
-//				return this->find(std::get<child_array_ptr_t>(v->data)[i].child, mbr, success);
-//			}
-//		}
-//	}
-//	else
-//	{
-//		for (size_t i = 0; i < v->count_array; i++)
-//		{
-//			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
-//			{
-//				success = true;
-//				return std::get<data_array_t>(v->data)[i].data;
-//			}
-//		}
-//		success = false;
-//		return data_type{};
-//	}
-//}
+R_template
+inline const data_type& R_class_area::find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const
+{
+	if (!v->leaf)
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr))
+			{
+				return this->find(std::get<child_array_ptr_t>(v->data)[i].child, mbr, success);
+			}
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
+			{
+				success = true;
+				return std::get<data_array_t>(v->data)[i].data;
+			}
+		}
+		success = false;
+		return this->error_data;
+	}
+
+	/*if (this->include_mbr(v->mbr, mbr))
+	{
+		if (!v->leaf)
+		{
+			for (size_t i = 0; i < v->count_array; i++)
+			{
+				if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].child->mbr, mbr))
+				{
+					return this->find(std::get<child_array_ptr_t>(v->data)[i].child, mbr, success);
+				}
+			}
+		}
+		else
+		{
+			for (size_t i = 0; i < v->count_array; i++)
+			{
+				if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
+				{
+					success = true;
+					return std::get<data_array_t>(v->data)[i].data;
+				}
+			}
+			success = false;
+			return data_type{};
+		}
+	}
+	else
+	{
+		success = false;
+		return data_type{};
+	}*/
+}
