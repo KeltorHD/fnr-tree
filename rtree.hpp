@@ -53,6 +53,9 @@ public:
 	/*поиск нужного объекта по его mbr*/
 	const data_type& find(const mbr_t& mbr, bool& success) const;
 
+	/*удаление объекта*/
+	void remove(const mbr_t& mbr, const data_type& data);
+
 	/*дебаг: вывод дерева*/
 	void print() const;
 
@@ -114,6 +117,9 @@ private:
 	/*поиск листа, в который можно поместить новое значение*/
 	node_ptr_t choice_leaf(const mbr_t& mbr) const;
 
+	/*поиск листа, в котором находится объект с mbr*/
+	node_ptr_t find_object(node_ptr_t v, const mbr_t& mbr, const data_type& data) const;
+
 	/*деление листа на 2 по квадратичному алгоритму Гуттмана (1984)*/
 	node_ptr_t node_division(node_ptr_t l1, const data_type& data, const mbr_t& mbr);
 
@@ -132,7 +138,10 @@ private:
 	child_info_t get_next(node_ptr_t l1, node_ptr_t l2, std::vector<child_info_t>& q);
 
 	/*нахождение родителя элемента*/
-	node_ptr_t get_parent(node_ptr_t where, const node_ptr_t& what, const mbr_t& mbr) const;
+	node_ptr_t get_parent(node_ptr_t where, const node_ptr_t& what) const;
+
+	/*получение данных из листочков*/
+	std::vector<data_info_t> get_all_data(node_ptr_t where);
 
 	/*функции для работы с mbr*/
 	mbr_t sum_mbr(const mbr_t& m1, const mbr_t& m2) const;              /*новый mbr из 2-х*/
@@ -528,7 +537,7 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 		}
 
 		/*если v1 не корень*/
-		node_ptr_t p{ this->get_parent(this->root, v1, v1->mbr) }; /*находим родителя v1*/
+		node_ptr_t p{ this->get_parent(this->root, v1) }; /*находим родителя v1*/
 		child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) }; /*находим запись о v1 в p*/
 		child_info_t& info{ *std::find_if(rref.begin(), rref.begin() + p->count_array, [&v1](const child_info_t& v) {return v1 == v.child; }) };
 		info.mbr = v1->mbr; /*обновляем mbr в записи у родителя v1*/
@@ -555,7 +564,7 @@ inline void R_class_area::correct_tree(node_ptr_t l1, node_ptr_t l2)
 }
 
 R_template
-inline typename R_class_area::node_ptr_t R_class_area::get_parent(node_ptr_t where, const node_ptr_t& what, const mbr_t& mbr) const
+inline typename R_class_area::node_ptr_t R_class_area::get_parent(node_ptr_t where, const node_ptr_t& what) const
 {
 	if (!where->leaf) /*если текущая позиция не листочек*/
 	{
@@ -569,7 +578,7 @@ inline typename R_class_area::node_ptr_t R_class_area::get_parent(node_ptr_t whe
 			}
 			else
 			{
-				node_ptr_t find_ptr{ this->get_parent(ref[i].child, what, mbr) };
+				node_ptr_t find_ptr{ this->get_parent(ref[i].child, what) };
 				if (find_ptr != nullptr)
 					return find_ptr;
 			}
@@ -714,35 +723,165 @@ inline const data_type& R_class_area::find(const node_ptr_t& v, const mbr_t& mbr
 		return this->error_data;
 	}
 
-	/*if (this->include_mbr(v->mbr, mbr))
+	success = false;
+	return this->error_data;
+}
+
+R_template
+inline void R_class_area::remove(const mbr_t& mbr, const data_type& data)
+{
+	node_ptr_t v{ this->root };
+	node_ptr_t l{ this->find_object(v, mbr, data) };
+	
+	if (l == nullptr)
 	{
-		if (!v->leaf)
+		std::cout << "Объект не найден!" << std::endl;
+		return;
+	}
+
+	data_array_t& info{ std::get<data_array_t>(l->data) }; /*удаляем data из l*/
+	size_t del_index{};
+	for (size_t i = 0; i < l->count_array; i++) /*поиск его места в массиве*/
+	{
+		if (info[i].data == data)
 		{
+			del_index = i;
+			break;
+		}
+	}
+	for (size_t i = del_index; i < l->count_array - 1; ++i) /*удаление нужного элемента*/
+	{
+		info[i] = info[i + 1];
+	}
+	l->count_array--;
+
+	v = l;
+	std::vector<data_info_t> ql{};
+	std::vector<child_info_t> qn{};
+
+	while (v != this->root)
+	{
+		node_ptr_t p{ this->get_parent(this->root, v) }; /*родитель v*/
+		child_array_ptr_t& rref{ std::get<child_array_ptr_t>(p->data) }; /*находим запись о v в p*/
+		child_info_t& info{ *std::find_if(rref.begin(), rref.begin() + p->count_array, [&v](const child_info_t& inf) {return v == inf.child; }) };
+		if (v->count_array < min_nodes) /*удаляем запись info из p*/
+		{
+			size_t del_index{};
+			for (size_t i = 0; i < p->count_array; i++)
+			{
+				if (rref[i].child == info.child)
+				{
+					del_index = i;
+					break;
+				}
+			}
+			for (size_t i = del_index; i < p->count_array - 1; ++i) /*удаление нужного элемента*/
+			{
+				rref[i] = rref[i + 1];
+			}
+			p->count_array--;
+			rref[p->count_array].child = nullptr;
+			rref[p->count_array].mbr = mbr_t{};
 			for (size_t i = 0; i < v->count_array; i++)
 			{
-				if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].child->mbr, mbr))
-				{
-					return this->find(std::get<child_array_ptr_t>(v->data)[i].child, mbr, success);
-				}
+				if (v->leaf)
+					ql.push_back(std::get<data_array_t>(v->data)[i]);
+				else
+					qn.push_back(std::get<child_array_ptr_t>(v->data)[i]);
 			}
 		}
 		else
 		{
+			v->mbr = v->leaf ? std::get<data_array_t>(v->data)[0].mbr : std::get<child_array_ptr_t>(v->data)[0].mbr;
 			for (size_t i = 0; i < v->count_array; i++)
 			{
-				if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
+				v->mbr = this->sum_mbr(v->mbr, v->leaf ? std::get<data_array_t>(v->data)[i].mbr : std::get<child_array_ptr_t>(v->data)[i].mbr);
+			}
+		}
+		v = p;
+	}
+	if (v->count_array == 1 && !v->leaf)
+	{
+		this->root = std::get<child_array_ptr_t>(v->data)[0].child;
+	}
+	else if (v->count_array == 0)
+	{
+		this->root->mbr = mbr_t{};
+	}
+
+	for (size_t i = 0; i < ql.size(); i++) /*закидываем вырезанные данные в листах*/
+	{
+		this->insert(ql[i].data, ql[i].mbr);
+	}
+	for (size_t i = 0; i < qn.size(); i++) /*закидываем вырезанные данные в узлах*/
+	{
+		std::vector<data_info_t> tmp{ this->get_all_data(qn[i].child) }; 
+		for (size_t j = 0; j < tmp.size(); j++)
+		{
+			this->insert(tmp[j].data, tmp[j].mbr);
+		}
+	}
+}
+
+R_template
+inline typename R_class_area::node_ptr_t R_class_area::find_object(node_ptr_t v, const mbr_t& mbr, const data_type& data) const
+{
+	if (!v->leaf)
+	{
+		bool is_find{ false };
+		node_ptr_t finded{};
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr))
+			{
+				finded = this->find_object(std::get<child_array_ptr_t>(v->data)[i].child, mbr, data);
+				if (finded != nullptr)
 				{
-					success = true;
-					return std::get<data_array_t>(v->data)[i].data;
+					is_find = true;
+					break;
 				}
 			}
-			success = false;
-			return data_type{};
+		}
+		return finded;
+	}
+	else
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (std::get<data_array_t>(v->data)[i].data == data)
+			{
+				return v;
+			}
+		}
+		return nullptr;
+	}
+
+	return nullptr;
+}
+
+R_template
+inline std::vector<typename R_class_area::data_info_t> R_class_area::get_all_data(node_ptr_t where)
+{
+	std::vector<data_info_t> ql;
+	if (!where->leaf)
+	{
+		for (size_t i = 0; i < where->count_array; i++)
+		{
+			std::vector<data_info_t> tmp{ this->get_all_data(std::get<child_array_ptr_t>(where->data)[i].child) };
+			ql.insert
+			(
+				ql.end(),
+				std::make_move_iterator(tmp.begin()),
+				std::make_move_iterator(tmp.end())
+			);
 		}
 	}
 	else
 	{
-		success = false;
-		return data_type{};
-	}*/
+		for (size_t i = 0; i < where->count_array; i++)
+		{
+			ql.push_back(data_info_t{ std::get<data_array_t>(where->data)[i].data, std::get<data_array_t>(where->data)[i].mbr });
+		}
+	}
+	return ql;
 }
