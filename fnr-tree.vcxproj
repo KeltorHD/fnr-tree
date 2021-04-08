@@ -145,6 +145,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="fnrtree.hpp" />
+    <ClInclude Include="interval.hpp" />
+    <ClInclude Include="line.hpp" />
     <ClInclude Include="rtree.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
