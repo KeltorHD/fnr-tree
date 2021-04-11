@@ -3,13 +3,13 @@
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new DEBUG_NEW
 
-#include "rtree.hpp"
+#include "fnrtree.hpp"
 
 #include <iostream>
 
 int main()
 {
-	{
+	/*{
 		system("chcp 65001>nul");
 		using Tree = R_tree<int, float, 2, float, 4, 2>;
 
@@ -62,7 +62,10 @@ int main()
 		}
 		tree.print();
 
-	}
+	}*/
+
+	FNR_tree<int> tree;
+
 
 	_CrtDumpMemoryLeaks(); /*показывает утечки памяти, если они есть*/
 	return 0;
