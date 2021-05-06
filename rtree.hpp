@@ -6,6 +6,7 @@
 #include <variant>
 #include <limits>
 #include <iostream>
+#include <functional>
 
 static int count_shared{ 0 };
 
@@ -26,6 +27,7 @@ class R_tree
 public:
 	/*точка n-мерного пространства*/
 	using point_t = std::array<coord_type, num_dims>;
+	using callback_t = std::function<bool(data_type, void*)>;
 	/*левая нижн. точка и правая верхн. точка mbr*/
 	struct  mbr_t
 	{
@@ -47,6 +49,9 @@ public:
 	/*основные функции*/
 	/*вставка нового значения в дерево с заданным mbr*/
 	void insert(const data_type& data, const mbr_t& mbr);
+
+	/*поиск объектов, в пределах mbr и применение к ним функции callback*/
+	size_t search(const mbr_t& mbr, const callback_t& callback, void* context);
 
 	/*поиск нужного объекта по его mbr*/
 	const data_type& find(const mbr_t& mbr, bool& success) const;
@@ -110,6 +115,9 @@ private:
 
 	/*поиск нужного объекта по его mbr в вершине v*/
 	const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
+
+	/*поиск объектов, в пределах mbr в вершине v*/
+	bool search(const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context);
 
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
@@ -882,4 +890,54 @@ inline std::vector<typename R_class_area::data_info_t> R_class_area::get_all_dat
 		}
 	}
 	return ql;
+}
+
+R_template
+inline size_t R_class_area::search(const mbr_t& mbr, const callback_t& callback, void* context)
+{
+	size_t count_founded{};
+
+	if (this->root)
+	{
+		this->search(this->root, mbr, count_founded, callback, context);
+		return count_founded;
+	}
+
+	return 0u;
+}
+
+R_template
+inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context)
+{
+	if (!v->leaf) /*если не листок*/
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (this->include_mbr(mbr, std::get<child_array_ptr_t>(v->data)[i].mbr)) /*если входит в мбр*/
+			{
+				if (!this->search(std::get<child_array_ptr_t>(v->data)[i].child, mbr, count_found, callback, context))  /*если функция вернула 0, прекращаем поиск*/
+				{
+					return false;
+				}
+			}
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr)) /*если входит в мбр*/
+			{
+				data_type& id{ std::get<data_array_t>(v->data)[i].data };
+				count_found++;
+
+				if (!callback(id, context)) /*если функция вернула 0, прекращаем поиск*/
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }

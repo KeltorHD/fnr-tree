@@ -234,13 +234,16 @@ public:
 		Interval tmpInterval(entrance_time, exit_time);
 		Insert_interval_args args(object_id, tmpLine, tmpInterval, orientation);
 
-		this->spatial_level->search(tmpLine.min, tmpLine.max, this->insert_time_interval, (void*)&args);
+		this->spatial_level->search({ tmpLine.min, tmpLine.max }, this->insert_time_interval, (void*)&args);
 
 #ifdef DEBUG
 		std::cout << "> END   InsertTripSegment." << std::endl;
 #endif // DEBUG
 	}
 
+	/*
+	Пересекает ли сегмент прямоугольник
+	*/
 	static bool segment_intersect_rectangle
 	(
 		int rectangleMinX, int rectangleMinY,
@@ -352,7 +355,7 @@ public:
 		std::cout << "\t-> interval = [" << temporalWindow->timeIn[0] << ", " << temporalWindow->timeOut[0] << "]" << std::endl;
 #endif // DEBUG
 
-		id->get_temporal_tree()->search(temporalWindow.time_in, temporalWindow.time_out, aux_temporal_search, arg);
+		id->get_temporal_tree()->search({ temporalWindow.time_in, temporalWindow.time_out }, aux_temporal_search, arg);
 
 #ifdef DEBUG
 		std::cout << "\t> END   auxSpatialSearch." << std::endl;
@@ -376,7 +379,7 @@ public:
 		std::cout << "\tsWindow : (" << spatialWindow->min[0] << " ," << spatialWindow->min[1] << ") ,(" << spatialWindow->max[0] << " ," << spatialWindow->max[1] << ")" << std::endl;
 #endif // DEBUG
 
-		this->spatial_level->search(spatialWindow.min, spatialWindow.max, aux_spatial_search, (void*)&args);
+		this->spatial_level->search({ spatialWindow.min, spatialWindow.max }, aux_spatial_search, (void*)&args);
 
 #ifdef DEBUG
 		std::cout << "> END   Search." << spatialWindow->min[0] << " ," << spatialWindow->min[1] << ") ,(" << spatialWindow->max[0] << " ," << spatialWindow->max[1] << ")" << std::endl;
