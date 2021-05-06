@@ -64,7 +64,9 @@ int main()
 
 	}*/
 
-	FNR_tree<int> tree;
+	{
+		FNR_tree<int> tree;
+	}
 
 
 	_CrtDumpMemoryLeaks(); /*показывает утечки памяти, если они есть*/

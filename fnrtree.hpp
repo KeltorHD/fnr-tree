@@ -8,6 +8,8 @@
 #include <string>
 #include <set>
 
+#define DEBUG
+
 template <typename object_t>
 class FNR_tree
 {
@@ -165,13 +167,13 @@ public:
 		Line tmpLine(std::min(x1, x2), std::min(y1, y2), std::max(x1, x2), std::max(y1, y2));
 
 #ifdef DEBUG
-		std::cout << "\t> Inserting.. (" << tmpLine->min[0] << "," << tmpLine->min[1] << ")->(" << tmpLine->max[0] << "," << tmpLine->max[1] << ")" << std::endl);
+		std::cout << "\t> Inserting.. (" << tmpLine.min[0] << "," << tmpLine.min[1] << ")->(" << tmpLine.max[0] << "," << tmpLine.max[1] << ")" << std::endl;
 #endif // DEBUG
 
 		std::shared_ptr<Spatial_leaf> tmp_leaf = std::make_shared<Spatial_leaf>(tmpLine, ori, name);
-		spatial_level->insert(tmpLine.min, tmpLine.max, tmp_leaf);
+		spatial_level->insert(tmp_leaf, { tmpLine.min, tmpLine.max });
 #ifdef DEBUG
-		std::cout << "> END   InsertLine." << std::endl);
+		std::cout << "> END   InsertLine." << std::endl;
 #endif // DEBUG
 	}
 
@@ -199,12 +201,12 @@ public:
 
 #ifdef DEBUG
 		std::string arrow = orientation ? "<--" : "-->";
-		std::cout << "\t\t> Inserting.. id: " << object_id << " interval[" << tmpInterval.time_in[0] << "," << tmpInterval.time_out[0] << "] " << arrow << " into " << id->get_name() << std::endl;
+		std::cout << "\t\t> Inserting.. id: " << object_id << " interval[" << tmpInterval.time_in << "," << tmpInterval.time_out << "] " << arrow << " into " << id->get_name() << std::endl;
 #endif // DEBUG
 
 		
 		std::shared_ptr<Temporal_leaf> tmpLeaf = std::make_shared<Temporal_leaf>(tmpInterval, object_id, orientation);
-		id->get_temporal_tree()->insert(tmpInterval.time_in, tmpInterval.time_out, tmpLeaf);
+		id->get_temporal_tree()->insert(tmpLeaf, { tmpInterval.time_in, tmpInterval.time_out });
 
 #ifdef DEBUG
 		std::cout << "\t> END   InsertTimeInterval." << std::endl;
@@ -306,7 +308,7 @@ public:
 	{
 #ifdef DEBUG
 		std::cout << "\t> BEGIN auxTemporalSearch." << std::endl;
-		std::cout << " \t\tFound: " << id->getId() << " -> [" << id->getInterval()->timeIn[0] << ", " << id->getInterval()->timeOut[0] << "]" << std::endl;
+		std::cout << " \t\tFound: " << id->get_id() << " -> [" << id->get_interval().time_in << ", " << id->get_interval().time_out << "]" << std::endl;
 #endif // DEBUG
 
 		Search_args* args = (Search_args*)arg;
@@ -343,7 +345,7 @@ public:
 	{
 #ifdef DEBUG
 		std::cout << "\t> BEGIN auxSpatialSearch." << std::endl;
-		std::cout << "\t\t" << id->nnn << std::endl;
+		std::cout << "\t\t" << id->get_name() << std::endl;
 #endif // DEBUG
 			
 		Search_args* args = (Search_args*)arg;
@@ -352,7 +354,7 @@ public:
 
 #ifdef DEBUG
 		std::cout << "\t> BEGIN auxSpatialSearch." << std::endl;
-		std::cout << "\t-> interval = [" << temporalWindow->timeIn[0] << ", " << temporalWindow->timeOut[0] << "]" << std::endl;
+		std::cout << "\t-> interval = [" << temporalWindow.time_in << ", " << temporalWindow.time_out << "]" << std::endl;
 #endif // DEBUG
 
 		id->get_temporal_tree()->search({ temporalWindow.time_in, temporalWindow.time_out }, aux_temporal_search, arg);
@@ -376,13 +378,13 @@ public:
 		Search_args args(spatialWindow, temporalWindow, resultArray);
 
 #ifdef DEBUG
-		std::cout << "\tsWindow : (" << spatialWindow->min[0] << " ," << spatialWindow->min[1] << ") ,(" << spatialWindow->max[0] << " ," << spatialWindow->max[1] << ")" << std::endl;
+		std::cout << "\tsWindow : (" << spatialWindow.min[0] << " ," << spatialWindow.min[1] << ") ,(" << spatialWindow.max[0] << " ," << spatialWindow.max[1] << ")" << std::endl;
 #endif // DEBUG
 
 		this->spatial_level->search({ spatialWindow.min, spatialWindow.max }, aux_spatial_search, (void*)&args);
 
 #ifdef DEBUG
-		std::cout << "> END   Search." << spatialWindow->min[0] << " ," << spatialWindow->min[1] << ") ,(" << spatialWindow->max[0] << " ," << spatialWindow->max[1] << ")" << std::endl;
+		std::cout << "> END   Search." << spatialWindow.min[0] << " ," << spatialWindow.min[1] << ") ,(" << spatialWindow.max[0] << " ," << spatialWindow.max[1] << ")" << std::endl;
 #endif // DEBUG
 		
 		return resultArray->size();
