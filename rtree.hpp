@@ -8,7 +8,11 @@
 #include <iostream>
 #include <functional>
 
+#ifdef DEBUG
 static int count_shared{ 0 };
+#endif // DEBUG
+static int count_shared{ 0 };
+
 
 #define R_template   template<typename data_type, typename coord_type, size_t num_dims, typename float_type, size_t max_nodes, size_t min_nodes>
 #define R_class_area R_tree<data_type, coord_type, num_dims, float_type, max_nodes, min_nodes>
@@ -60,7 +64,7 @@ public:
 	void remove(const mbr_t& mbr, const data_type& data);
 
 	/*дебаг: вывод дерева*/
-	void print() const;
+	void print(size_t level = 0, std::function<void(int, void*)> handler_data = {}) const;
 
 private:
 	struct node;
@@ -99,19 +103,24 @@ private:
 		node(bool leaf)
 			: leaf(leaf)
 		{
+#ifdef DEBUG
 			count_shared++;
+#endif // DEBUG
+
 			if (this->leaf) this->data = data_array_t{};
 			else this->data = child_array_ptr_t{};
 		}
 		~node()
 		{
+#ifdef DEBUG
 			std::cout << (this->leaf ? "Лист " : "Узел ") << count_shared << " адрес " << this << " уничтожен" << std::endl;
 			count_shared--;
+#endif // DEBUG
 		}
 	};
 
 	/*дебаг: печать дерева*/
-	void print(const node_ptr_t& to_print, size_t& level) const;
+	void print(const node_ptr_t& to_print, size_t& level, std::function<void(int, void*)> handler_data) const;
 
 	/*поиск нужного объекта по его mbr в вершине v*/
 	const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
@@ -595,18 +604,18 @@ inline typename R_class_area::node_ptr_t R_class_area::get_parent(node_ptr_t whe
 
 
 R_template
-inline void R_class_area::print() const
+inline void R_class_area::print(size_t level, std::function<void(int, void*)> handler_data) const
 {
 	std::cout << "Дерево." << std::endl;
 
-	size_t level{ 0 };
-	this->print(this->root, level);
+	size_t level_m{ level };
+	this->print(this->root, level_m, handler_data);
 	
 	std::cout << std::endl;
 }
 
 R_template
-inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
+inline void R_class_area::print(const node_ptr_t& to_print, size_t& level, std::function<void(int, void*)> handler_data) const
 {
 	for (size_t l = 0; l < level; l++)
 	{
@@ -625,7 +634,7 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 		std::cout << (j == 0 ? "), " : ")");
 	}
 	std::cout << "). ";
-	std::cout << to_print->count_array << (to_print->leaf ? " объектов. " : " ссылок на потомки. ") << "Данные: " << std::endl;
+	std::cout << to_print->count_array << (to_print->leaf ? " объектов. " : " ссылок на потомки. ") << (to_print->count_array ? "Данные: " : "Лист пуст.") << std::endl;
 	for (size_t l = 0; l < level; l++)
 	{
 		std::cout << "    ";
@@ -642,7 +651,9 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 					std::cout << ", ";
 
 				if (to_print->leaf)
+				{
 					std::cout << (j == 0 ? std::get<data_array_t>(to_print->data)[i].mbr.ld[k] : std::get<data_array_t>(to_print->data)[i].mbr.ru[k]);
+				}
 				else
 					std::cout << (j == 0 ? std::get<child_array_ptr_t>(to_print->data)[i].mbr.ld[k] : std::get<child_array_ptr_t>(to_print->data)[i].mbr.ru[k]);
 			}
@@ -660,7 +671,8 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 			{
 				std::cout << "    ";
 			}
-			std::cout << "Объект: " << std::get<data_array_t>(to_print->data)[i].data << ", mbr: (";
+			//handler_data((void*)&(j == 0 ? std::get<data_array_t>(to_print->data)[i].mbr.ld[k] : std::get<data_array_t>(to_print->data)[i].mbr.ru[k]));
+			std::cout << "Объект, mbr: (";
 			for (size_t j = 0; j < 2; j++)
 			{
 				std::cout << "(";
@@ -673,6 +685,16 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 				std::cout << (j == 0 ? "), " : ")");
 			}
 			std::cout << ")" << std::endl;
+			for (size_t l = 0; l < level + 1; l++)
+			{
+				std::cout << "    ";
+			}
+			std::cout << "Данные: " << std::endl;
+			for (size_t l = 0; l < level + 1; l++)
+			{
+				std::cout << "    ";
+			}
+			handler_data(level + 1, (void*)&std::get<data_array_t>(to_print->data)[i].data);
 		}
 	}
 	else
@@ -680,7 +702,7 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level) const
 		level++;
 		for (size_t i = 0; i < to_print->count_array; i++)
 		{
-			this->print(std::get<child_array_ptr_t>(to_print->data)[i].child, level);
+			this->print(std::get<child_array_ptr_t>(to_print->data)[i].child, level, handler_data);
 		}
 		level--;
 	}
@@ -899,8 +921,12 @@ inline size_t R_class_area::search(const mbr_t& mbr, const callback_t& callback,
 
 	if (this->root)
 	{
-		this->search(this->root, mbr, count_founded, callback, context);
-		return count_founded;
+		if (this->include_mbr(this->root->mbr, mbr))
+		{
+			this->search(this->root, mbr, count_founded, callback, context);
+			return count_founded;
+		}
+		return 0u;
 	}
 
 	return 0u;
@@ -913,7 +939,10 @@ inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& 
 	{
 		for (size_t i = 0; i < v->count_array; i++)
 		{
-			if (this->include_mbr(mbr, std::get<child_array_ptr_t>(v->data)[i].mbr)) /*если входит в мбр*/
+			/*std::cout << "-{(" << mbr.ld[0] << ", " << mbr.ld[1] << "), (" << mbr.ru[0] << ", " << mbr.ru[1] << ")" << std::endl;
+			std::cout << "+{(" << std::get<child_array_ptr_t>(v->data)[i].mbr.ld[0] << ", " << std::get<child_array_ptr_t>(v->data)[i].mbr.ld[1] 
+				<< "), (" << std::get<child_array_ptr_t>(v->data)[i].mbr.ru[0] << ", " << std::get<child_array_ptr_t>(v->data)[i].mbr.ru[1] << ")" << std::endl;*/
+			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr)) /*если входит в мбр*/
 			{
 				if (!this->search(std::get<child_array_ptr_t>(v->data)[i].child, mbr, count_found, callback, context))  /*если функция вернула 0, прекращаем поиск*/
 				{
@@ -926,7 +955,10 @@ inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& 
 	{
 		for (size_t i = 0; i < v->count_array; i++)
 		{
-			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr)) /*если входит в мбр*/
+			/*std::cout << "-{(" << mbr.ld[0] << ", " << mbr.ld[1] << "), (" << mbr.ru[0] << ", " << mbr.ru[1] << ")" << std::endl;
+			std::cout << "+{(" << std::get<data_array_t>(v->data)[i].mbr.ld[0] << ", " << std::get<data_array_t>(v->data)[i].mbr.ld[1]
+				<< "), (" << std::get<data_array_t>(v->data)[i].mbr.ru[0] << ", " << std::get<data_array_t>(v->data)[i].mbr.ru[1] << ")" << std::endl;*/
+			if (this->include_mbr(std::get<data_array_t>(v->data)[i].mbr, mbr)) /*если входит в мбр*/
 			{
 				data_type& id{ std::get<data_array_t>(v->data)[i].data };
 				count_found++;

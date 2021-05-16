@@ -5,6 +5,7 @@
 #include "line.hpp"
 #include "interval.hpp"
 
+#include <iostream>
 #include <string>
 #include <set>
 
@@ -16,10 +17,14 @@ class FNR_tree
 private:
 	class Spatial_leaf;
 	class Temporal_leaf;
-	using spatial_level_t = std::shared_ptr<R_tree<std::shared_ptr<Spatial_leaf>, int, 2, float>>;
+	using spatial_t = R_tree<std::shared_ptr<Spatial_leaf>, int, 2, float, 8, 4>;
+	using spatial_level_t = std::shared_ptr<spatial_t>;
 
 public:
-	FNR_tree() = default;
+	FNR_tree()
+	{
+		this->spatial_level = std::make_shared<spatial_t>();
+	}
 	~FNR_tree() = default;
 
 	FNR_tree(const FNR_tree&) = delete;  /*конструкторы и операторы копирования и переноса удалены*/
@@ -38,6 +43,10 @@ public:
 			this->interval = in;
 			this->object_id = id;
 			this->movement_direction = dir;
+		}
+		void print() const
+		{
+			std::cout << "id: " << this->object_id << ", dir: " << this->movement_direction << ". Time interval: (" << interval.time_in << ", " << interval.time_out << ")" << std::endl;
 		}
 		const object_t& get_id() const
 		{
@@ -61,7 +70,8 @@ public:
 	class Spatial_leaf
 	{
 	public:
-		using temporal_t = std::shared_ptr<R_tree<std::shared_ptr<Temporal_leaf>, double, 1, float>>;
+		using temporal_t = R_tree<std::shared_ptr<Temporal_leaf>, double, 1, float>;
+		using temporal_ptr_t = std::shared_ptr<temporal_t>;
 
 		Spatial_leaf() = default;
 		~Spatial_leaf() = default;
@@ -71,6 +81,14 @@ public:
 			orientation = ori;
 			nnn = nn;
 			temporal_tree = std::make_shared<temporal_t>();
+		}
+		void print(size_t level) const
+		{
+			this->temporal_tree->print(level, [](size_t level, void* data)
+				{
+					const std::shared_ptr<Temporal_leaf>& tl = *((std::shared_ptr<Temporal_leaf>*)data);
+					tl->print();
+				});
 		}
 		const Line& get_line() const
 		{
@@ -84,7 +102,7 @@ public:
 		{
 			return orientation;
 		}
-		const temporal_t& get_temporal_tree() const
+		const temporal_ptr_t& get_temporal_tree() const
 		{
 			return temporal_tree;
 		}
@@ -105,7 +123,7 @@ public:
 		}*/
 	private:
 		bool orientation;
-		temporal_t temporal_tree;
+		temporal_ptr_t temporal_tree;
 		Line line;
 		std::string nnn;
 
@@ -149,6 +167,17 @@ public:
 		};
 	};
 
+	/*печать дерева в консоль*/
+	void print() const
+	{
+		this->spatial_level->print(0, [](size_t level, void* data)
+			{
+				const std::shared_ptr<Spatial_leaf>& tree = *((std::shared_ptr<Spatial_leaf>*)data);
+				tree->print(level);
+			}
+		);
+	}
+
 	/*
 	Вставка именованного отрезка в дерево
 	Аргументы:
@@ -160,7 +189,7 @@ public:
 	void insert_line(int x1, int y1, int x2, int y2, std::string name)
 	{
 #ifdef DEBUG
-		std::cout << "> BEGIN InsertLine:" << std::endl;
+		std::cout << "> BEGIN InsertLine name: " + name + ":" << std::endl;
 #endif // DEBUG
 
 		bool ori = !((x2 - x1) * (y2 - y1) >= 0); // 0 -> / , 1 -> \ .
@@ -170,7 +199,7 @@ public:
 		std::cout << "\t> Inserting.. (" << tmpLine.min[0] << "," << tmpLine.min[1] << ")->(" << tmpLine.max[0] << "," << tmpLine.max[1] << ")" << std::endl;
 #endif // DEBUG
 
-		std::shared_ptr<Spatial_leaf> tmp_leaf = std::make_shared<Spatial_leaf>(tmpLine, ori, name);
+		auto tmp_leaf = std::make_shared<Spatial_leaf>(tmpLine, ori, name);
 		spatial_level->insert(tmp_leaf, { tmpLine.min, tmpLine.max });
 #ifdef DEBUG
 		std::cout << "> END   InsertLine." << std::endl;
@@ -230,16 +259,23 @@ public:
 		std::cout << "> BEGIN InsertTripSegment." << std::endl;
 #endif // DEBUG
 
-
 		Line tmpLine(std::min(x1, x2), std::min(y1, y2), std::max(x1, x2), std::max(y1, y2));
-		bool orientation = !(x1 < x2);
+
+		/*расчет направления движения*/
+		bool orientation = x1 != x2 ? !(x1 < x2) : !(y1 < y2); /* |/>| - 0, |</| - 1, |^| - 0 */
 		Interval tmpInterval(entrance_time, exit_time);
 		Insert_interval_args args(object_id, tmpLine, tmpInterval, orientation);
+
+#ifdef DEBUG
+		std::cout << "\t> Line: (" << tmpLine.min[0] << "," << tmpLine.min[1] << ")->(" << tmpLine.max[0] << "," << tmpLine.max[1] << ")" << std::endl;
+		std::cout << "\t> Time interval: (" << entrance_time << ", " << exit_time << ")" << std::endl;
+#endif // !DEBUG
+
 
 		this->spatial_level->search({ tmpLine.min, tmpLine.max }, this->insert_time_interval, (void*)&args);
 
 #ifdef DEBUG
-		std::cout << "> END   InsertTripSegment." << std::endl;
+		std::cout << "> END InsertTripSegment." << std::endl;
 #endif // DEBUG
 	}
 
@@ -277,8 +313,8 @@ public:
 		{
 			double a = (p2Y - p1Y) / dx;
 			double b = p1Y - a * p1X;
-			minY = a * minX + b;
-			maxY = a * maxX + b;
+			minY = int(a * minX + b);
+			maxY = int(a * maxX + b);
 		}
 		if (minY > maxY)
 		{
@@ -304,6 +340,7 @@ public:
 		return true;
 	}
 
+	/*Внутренний поиск, если пересекаются линия поиска и то, что лежит в дереве, то id добавляется в результирующий список*/
 	static bool aux_temporal_search(std::shared_ptr<Temporal_leaf> id, void* arg)
 	{
 #ifdef DEBUG
@@ -341,6 +378,7 @@ public:
 		return true;
 	}
 
+	/*Внутренний поиск, ищем по временному окну в одномерном дереве*/
 	static bool aux_spatial_search(std::shared_ptr<Spatial_leaf> id, void* arg)
 	{
 #ifdef DEBUG
@@ -366,6 +404,15 @@ public:
 		return true;
 	}
 
+	/*
+	Поиск всех перемещений всех объектов на некотором отрезке за промежуток времени
+	Аргументы:
+	-Из какой точки начинать поиск
+	-В какой точке заканчивать поиск
+	-Время входа в сегмент 
+	-Время выхода из сегмента
+	-Контейнер, в который записываются объекты, подходящие под поисковый запрос
+	*/
 	int search(int x1, int y1, int x2, int y2, double entranceTime, double exitTime, std::set<object_t>* resultArray)
 	{
 #ifdef DEBUG
@@ -374,8 +421,8 @@ public:
 
 		resultArray->clear();
 		Line spatialWindow(std::min(x1, x2), std::min(y1, y2), std::max(x1, x2), std::max(y1, y2));
-		Interval temporalWindow(entranceTime, exitTime);
-		Search_args args(spatialWindow, temporalWindow, resultArray);
+		Interval temporalWindow(entranceTime, exitTime); /*временное окно*/
+		Search_args args(spatialWindow, temporalWindow, resultArray); /*пространственное окно*/
 
 #ifdef DEBUG
 		std::cout << "\tsWindow : (" << spatialWindow.min[0] << " ," << spatialWindow.min[1] << ") ,(" << spatialWindow.max[0] << " ," << spatialWindow.max[1] << ")" << std::endl;
