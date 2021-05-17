@@ -77,10 +77,10 @@ public:
 		~Spatial_leaf() = default;
 		Spatial_leaf(Line l, bool ori, std::string nn)
 		{
-			line = l;
-			orientation = ori;
-			nnn = nn;
-			temporal_tree = std::make_shared<temporal_t>();
+			this->line = l;
+			this->orientation = ori;
+			this->nnn = nn;
+			this->temporal_tree = std::make_shared<temporal_t>();
 		}
 		void print(size_t level) const
 		{
@@ -92,7 +92,7 @@ public:
 		}
 		const Line& get_line() const
 		{
-			return line;
+			return this->line;
 		}
 		const std::string& get_name() const
 		{
@@ -100,27 +100,21 @@ public:
 		}
 		bool get_orientation() const
 		{
-			return orientation;
+			return this->orientation;
 		}
 		const temporal_ptr_t& get_temporal_tree() const
 		{
-			return temporal_tree;
+			return this->temporal_tree;
 		}
-		/*size_t size()
+		size_t size() const
 		{
-			size_t totalSize = sizeof(Spatial_leaf) + sizeof(Line) + sizeof(RTree<TemporalLeaf*, double, 1, float>);
+			size_t self{ sizeof(Spatial_leaf) };
 
-			RTree<TemporalLeaf*, double, 1, float>::Iterator it;
-			temporalTree->GetFirst(it);
-
-			while (!(temporalTree->IsNull(it)))
-			{
-				totalSize += (*it)->size();
-				temporalTree->GetNext(it);
-			}
-
-			return totalSize;
-		}*/
+			return self + this->temporal_tree->size([](const std::shared_ptr<Temporal_leaf>& leaf)
+				{
+					return leaf->size();
+				});
+		}
 	private:
 		bool orientation;
 		temporal_ptr_t temporal_tree;
@@ -413,7 +407,7 @@ public:
 	-Время выхода из сегмента
 	-Контейнер, в который записываются объекты, подходящие под поисковый запрос
 	*/
-	int search(int x1, int y1, int x2, int y2, double entranceTime, double exitTime, std::set<object_t>* resultArray)
+	size_t search(int x1, int y1, int x2, int y2, double entranceTime, double exitTime, std::set<object_t>* resultArray)
 	{
 #ifdef DEBUG
 		std::cout << "> BEGIN Search." << std::endl;
@@ -437,21 +431,17 @@ public:
 		return resultArray->size();
 	}
 
-	/*size_t size()
+	size_t size() const
 	{
-		size_t totalSize = sizeof(SpatialLevel);
+		size_t self{ sizeof(FNR_tree) };
 
-		RTree<SpatialLeaf*, int, 2, float>::Iterator it;
-		SpatialLevel->GetFirst(it);
+		size_t tree_size{ this->spatial_level->size([](const std::shared_ptr<Spatial_leaf>& leaf)
+			{
+				return leaf->size();
+			}) };
 
-		while (!(SpatialLevel->IsNull(it)))
-		{
-			totalSize += (*it)->size();
-			SpatialLevel->GetNext(it);
-		}
-
-		return totalSize;
-	}*/
+		return self + tree_size;
+	}
 
 private:
 	spatial_level_t spatial_level;

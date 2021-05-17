@@ -211,9 +211,13 @@ int main(int argc, char* argv[])
 			const Interval& interval = *((Interval*)data);
 			std::cout << interval.id << ", in: " << interval.in << ", out: " << interval.out;
 		});
-	bool suc{ false };
-	tree.find({0,10}, suc);
-	std::cout << suc << std::endl;*/
+
+	std::cout << tree.size([](const Interval& i)
+		{
+			return sizeof(Interval);
+		}) << std::endl;
+	std::cout << "child_array_ptr_t: " << sizeof(R_tree<Interval, double, 1, float>::child_array_ptr_t) << std::endl;
+	std::cout << "data_array_t: " << sizeof(R_tree<Interval, double, 1, float>::data_array_t) << std::endl;*/
 
 	{
 		if (argc != 6)
@@ -246,8 +250,7 @@ int main(int argc, char* argv[])
 
 		std::cout << "> FNR-Tree indicators:" << std::endl;
 		std::cout << "   > MEMORY USAGE  = " << std::right << std::setw(10);
-		std::cout << "{NOT REALIZED}";
-		std::cout << " Bytes" << std::endl;
+		std::cout << kk.size() << " Bytes" << std::endl;
 		std::cout << "   > Building time = " << std::right << std::setw(10);
 		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start2).count();
 		std::cout << " microseconds" << std::endl;

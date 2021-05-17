@@ -32,6 +32,7 @@ public:
 	/*точка n-мерного пространства*/
 	using point_t = std::array<coord_type, num_dims>;
 	using callback_t = std::function<bool(data_type, void*)>;
+	using size_callback_t = std::function<size_t(const data_type&)>;
 	/*левая нижн. точка и правая верхн. точка mbr*/
 	struct  mbr_t
 	{
@@ -68,6 +69,8 @@ public:
 
 	/*дебаг: вывод дерева*/
 	void print(size_t level = 0, std::function<void(int, void*)> handler_data = {}) const;
+
+	size_t size(const size_callback_t& handler) const;
 
 private:
 	struct node;
@@ -133,6 +136,8 @@ private:
 
 	/*поиск объектов, в пределах mbr в вершине v*/
 	bool search(bool is_range, const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context);
+
+	void size(size_t& total, const node_ptr_t& v, const size_callback_t& callback) const;
 
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
@@ -703,7 +708,7 @@ inline void R_class_area::print(const node_ptr_t& to_print, size_t& level, std::
 			{
 				std::cout << "    ";
 			}
-			handler_data(level + 1, (void*)&std::get<data_array_t>(to_print->data)[i].data);
+			handler_data(int(level + 1), (void*)&std::get<data_array_t>(to_print->data)[i].data);
 		}
 	}
 	else
@@ -1002,4 +1007,39 @@ R_template
 inline size_t R_class_area::search_objects(const mbr_t& mbr, const callback_t& callback, void* context)
 {
 	return this->search(false, mbr, callback, context);
+}
+
+R_template
+inline size_t R_class_area::size(const size_callback_t& handler) const
+{
+	size_t total{ sizeof(R_tree) };
+
+	if (this->root)
+	{
+		this->size(total, this->root, handler);
+	}
+
+	return total;
+}
+
+R_template
+inline void R_class_area::size(size_t& total, const node_ptr_t& v, const size_callback_t& handler) const
+{
+	total += sizeof(node);
+
+	if (!v->leaf) /*если не листок*/
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			this->size(total, std::get<child_array_ptr_t>(v->data)[i].child, handler);
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < v->count_array; i++)
+		{
+			const data_type& id{ std::get<data_array_t>(v->data)[i].data };
+			total += handler(id);
+		}
+	}
 }
