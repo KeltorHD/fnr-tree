@@ -46,7 +46,7 @@ public:
 		}
 		void print() const
 		{
-			std::cout << "id: " << this->object_id << ", dir: " << this->movement_direction << ". Time interval: (" << interval.time_in << ", " << interval.time_out << ")" << std::endl;
+			std::cout << "id: " << this->object_id << ", dir: " << this->movement_direction << ". Time interval: [" << interval.time_in << ", " << interval.time_out << "]" << std::endl;
 		}
 		const object_t& get_id() const
 		{
@@ -173,6 +173,7 @@ public:
 		this->spatial_level->print(0, [](size_t level, void* data)
 			{
 				const std::shared_ptr<Spatial_leaf>& tree = *((std::shared_ptr<Spatial_leaf>*)data);
+				std::cout << "Название дороги: " << tree->get_name() << ", ";
 				tree->print(level);
 			}
 		);
@@ -272,7 +273,7 @@ public:
 #endif // !DEBUG
 
 
-		this->spatial_level->search({ tmpLine.min, tmpLine.max }, this->insert_time_interval, (void*)&args);
+		this->spatial_level->search_objects({ tmpLine.min, tmpLine.max }, this->insert_time_interval, (void*)&args);
 
 #ifdef DEBUG
 		std::cout << "> END InsertTripSegment." << std::endl;
@@ -391,11 +392,10 @@ public:
 		args->lf = id;
 
 #ifdef DEBUG
-		std::cout << "\t> BEGIN auxSpatialSearch." << std::endl;
 		std::cout << "\t-> interval = [" << temporalWindow.time_in << ", " << temporalWindow.time_out << "]" << std::endl;
 #endif // DEBUG
 
-		id->get_temporal_tree()->search({ temporalWindow.time_in, temporalWindow.time_out }, aux_temporal_search, arg);
+		id->get_temporal_tree()->search_in_range({ temporalWindow.time_in, temporalWindow.time_out }, aux_temporal_search, arg);
 
 #ifdef DEBUG
 		std::cout << "\t> END   auxSpatialSearch." << std::endl;
@@ -425,13 +425,13 @@ public:
 		Search_args args(spatialWindow, temporalWindow, resultArray); /*пространственное окно*/
 
 #ifdef DEBUG
-		std::cout << "\tsWindow : (" << spatialWindow.min[0] << " ," << spatialWindow.min[1] << ") ,(" << spatialWindow.max[0] << " ," << spatialWindow.max[1] << ")" << std::endl;
+		std::cout << "\tsWindow : (" << spatialWindow.min[0] << ", " << spatialWindow.min[1] << "), (" << spatialWindow.max[0] << ", " << spatialWindow.max[1] << ")" << std::endl;
 #endif // DEBUG
 
-		this->spatial_level->search({ spatialWindow.min, spatialWindow.max }, aux_spatial_search, (void*)&args);
+		this->spatial_level->search_objects({ spatialWindow.min, spatialWindow.max }, aux_spatial_search, (void*)&args);
 
 #ifdef DEBUG
-		std::cout << "> END   Search." << spatialWindow.min[0] << " ," << spatialWindow.min[1] << ") ,(" << spatialWindow.max[0] << " ," << spatialWindow.max[1] << ")" << std::endl;
+		std::cout << "> END   Search." << std::endl;
 #endif // DEBUG
 		
 		return resultArray->size();

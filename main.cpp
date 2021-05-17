@@ -119,6 +119,7 @@ void readQueries(const char* inFilename, const char* outFilename, FNR_tree<long>
 	std::cout << duration.count();
 	std::cout << " microseconds" << std::endl;
 	outfile.close();
+	delete resArray;
 }
 
 int main(int argc, char* argv[])
@@ -202,6 +203,18 @@ int main(int argc, char* argv[])
 		FNR_tree<int> tree;
 	}*/
 
+	/*struct Interval { double in, out; long id; };
+	R_tree<Interval, double, 1, float> tree;
+	tree.insert({ 0,5, 1000 }, { 0,5 });
+	tree.print(0, [](int level, void* data)
+		{
+			const Interval& interval = *((Interval*)data);
+			std::cout << interval.id << ", in: " << interval.in << ", out: " << interval.out;
+		});
+	bool suc{ false };
+	tree.find({0,10}, suc);
+	std::cout << suc << std::endl;*/
+
 	{
 		if (argc != 6)
 		{
@@ -222,7 +235,7 @@ int main(int argc, char* argv[])
 		readNodes(nodesFile, Nodes);
 		readEdges(edgesFile, Nodes, &kk);
 
-		kk.print();
+		//kk.print();
 
 		auto start2 = std::chrono::high_resolution_clock::now();
 		readTrajectories(trajectoriesFile, &kk);
@@ -239,7 +252,9 @@ int main(int argc, char* argv[])
 		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start2).count();
 		std::cout << " microseconds" << std::endl;
 
-		//readQueries(queriesFile, outFile, &kk);
+		readQueries(queriesFile, outFile, &kk);
+
+		delete Nodes;
 	}
 
 

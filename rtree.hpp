@@ -54,8 +54,11 @@ public:
 	/*вставка нового значения в дерево с заданным mbr*/
 	void insert(const data_type& data, const mbr_t& mbr);
 
-	/*поиск объектов, в пределах mbr и применение к ним функции callback*/
-	size_t search(const mbr_t& mbr, const callback_t& callback, void* context);
+	/*поиск объектов в диапазоне mbr и применение к ним функции callback*/
+	size_t search_in_range(const mbr_t& mbr, const callback_t& callback, void* context);
+
+	/*поиск конкретных объектов с mbr и применение к ним функции callback*/
+	size_t search_objects(const mbr_t& mbr, const callback_t& callback, void* context);
 
 	/*поиск нужного объекта по его mbr*/
 	const data_type& find(const mbr_t& mbr, bool& success) const;
@@ -125,8 +128,11 @@ private:
 	/*поиск нужного объекта по его mbr в вершине v*/
 	const data_type& find(const node_ptr_t& v, const mbr_t& mbr, bool& success) const;
 
+	/*поиск объектов, в пределах mbr и применение к ним функции callback*/
+	size_t search(bool is_range, const mbr_t& mbr, const callback_t& callback, void* context);
+
 	/*поиск объектов, в пределах mbr в вершине v*/
-	bool search(const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context);
+	bool search(bool is_range, const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context);
 
 	/*функции для работы с деревом*/
 	/*поиск листа, в который можно поместить новое значение*/
@@ -217,9 +223,12 @@ R_template
 inline coord_type R_class_area::calc_square(const mbr_t& m) const
 {
 	coord_type square{ std::abs(m.ld[0] - m.ru[0]) };
-	for (size_t i = 1; i < num_dims; i++)
+	if (num_dims > 1)
 	{
-		square *= std::abs(m.ld[i] - m.ru[i]);
+		for (size_t i = 1; i < num_dims; i++)
+		{
+			square *= std::abs(m.ld[i] - m.ru[i]);
+		}
 	}
 	return std::abs(square);
 }
@@ -741,7 +750,7 @@ inline const data_type& R_class_area::find(const node_ptr_t& v, const mbr_t& mbr
 	{
 		for (size_t i = 0; i < v->count_array; i++)
 		{
-			if (this->include_mbr(mbr, std::get<data_array_t>(v->data)[i].mbr))
+			if (this->include_mbr(std::get<data_array_t>(v->data)[i].mbr, mbr))
 			{
 				success = true;
 				return std::get<data_array_t>(v->data)[i].data;
@@ -915,15 +924,18 @@ inline std::vector<typename R_class_area::data_info_t> R_class_area::get_all_dat
 }
 
 R_template
-inline size_t R_class_area::search(const mbr_t& mbr, const callback_t& callback, void* context)
+inline size_t R_class_area::search(bool is_range, const mbr_t& mbr, const callback_t& callback, void* context)
 {
 	size_t count_founded{};
 
 	if (this->root)
 	{
-		if (this->include_mbr(this->root->mbr, mbr))
+		if (this->include_mbr(
+			is_range ? mbr : this->root->mbr,
+			is_range ? this->root->mbr : mbr
+		))
 		{
-			this->search(this->root, mbr, count_founded, callback, context);
+			this->search(is_range, this->root, mbr, count_founded, callback, context);
 			return count_founded;
 		}
 		return 0u;
@@ -933,7 +945,7 @@ inline size_t R_class_area::search(const mbr_t& mbr, const callback_t& callback,
 }
 
 R_template
-inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context)
+inline bool R_class_area::search(bool is_range, const node_ptr_t& v, const mbr_t& mbr, size_t& count_found, const callback_t& callback, void* context)
 {
 	if (!v->leaf) /*если не листок*/
 	{
@@ -942,9 +954,12 @@ inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& 
 			/*std::cout << "-{(" << mbr.ld[0] << ", " << mbr.ld[1] << "), (" << mbr.ru[0] << ", " << mbr.ru[1] << ")" << std::endl;
 			std::cout << "+{(" << std::get<child_array_ptr_t>(v->data)[i].mbr.ld[0] << ", " << std::get<child_array_ptr_t>(v->data)[i].mbr.ld[1] 
 				<< "), (" << std::get<child_array_ptr_t>(v->data)[i].mbr.ru[0] << ", " << std::get<child_array_ptr_t>(v->data)[i].mbr.ru[1] << ")" << std::endl;*/
-			if (this->include_mbr(std::get<child_array_ptr_t>(v->data)[i].mbr, mbr)) /*если входит в мбр*/
+			if (this->include_mbr(
+				is_range ? mbr : std::get<child_array_ptr_t>(v->data)[i].mbr,
+				is_range ? std::get<child_array_ptr_t>(v->data)[i].mbr : mbr
+			)) /*если входит в мбр*/
 			{
-				if (!this->search(std::get<child_array_ptr_t>(v->data)[i].child, mbr, count_found, callback, context))  /*если функция вернула 0, прекращаем поиск*/
+				if (!this->search(is_range, std::get<child_array_ptr_t>(v->data)[i].child, mbr, count_found, callback, context))  /*если функция вернула 0, прекращаем поиск*/
 				{
 					return false;
 				}
@@ -958,7 +973,10 @@ inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& 
 			/*std::cout << "-{(" << mbr.ld[0] << ", " << mbr.ld[1] << "), (" << mbr.ru[0] << ", " << mbr.ru[1] << ")" << std::endl;
 			std::cout << "+{(" << std::get<data_array_t>(v->data)[i].mbr.ld[0] << ", " << std::get<data_array_t>(v->data)[i].mbr.ld[1]
 				<< "), (" << std::get<data_array_t>(v->data)[i].mbr.ru[0] << ", " << std::get<data_array_t>(v->data)[i].mbr.ru[1] << ")" << std::endl;*/
-			if (this->include_mbr(std::get<data_array_t>(v->data)[i].mbr, mbr)) /*если входит в мбр*/
+			if (this->include_mbr(
+				is_range ? mbr : std::get<data_array_t>(v->data)[i].mbr,
+				is_range ? std::get<data_array_t>(v->data)[i].mbr : mbr
+			)) /*если входит в мбр*/
 			{
 				data_type& id{ std::get<data_array_t>(v->data)[i].data };
 				count_found++;
@@ -972,4 +990,16 @@ inline bool R_class_area::search(const node_ptr_t& v, const mbr_t& mbr, size_t& 
 	}
 
 	return true;
+}
+
+R_template
+inline size_t R_class_area::search_in_range(const mbr_t& mbr, const callback_t& callback, void* context)
+{
+	return this->search(true, mbr, callback, context);
+}
+
+R_template
+inline size_t R_class_area::search_objects(const mbr_t& mbr, const callback_t& callback, void* context)
+{
+	return this->search(false, mbr, callback, context);
 }
