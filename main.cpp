@@ -35,7 +35,7 @@ void readEdges(const char* filename, std::map<long, std::pair<int, int> >* nodes
 	{
 		std::istringstream iss(line);
 		long id, A, B; std::string name;
-		if (!(iss >> id >> A >> B >> name)) break;
+		if (!(iss >> id >> A >> B/* >> name*/)) break;
 
 		//std::cout << "id edge: " << id << ", A-id: " << A << ", B-id: " << B << ", name" << name << std::endl;
 
@@ -64,8 +64,12 @@ void readTrajectories(const char* filename, FNR_tree<long>* tree)
 		std::istringstream iss(line);
 		char cls; long id; double time;
 		int currX, currY;
-		if (!(iss >> cls >> id >> time >> currX >> currY)) 
-			break;
+		int cID, nextX, nextY; double speed;
+		/*if (!(iss >> cls >> id >> time >> currX >> currY)) 
+			break;*/
+		if (!(iss >> cls >> id >> cID >>
+			time >> currX >> currY >>
+			speed >> nextX >> nextY)) break;
 
 		if (cls == '0') /*начальные данные*/
 		{
@@ -115,7 +119,7 @@ void readQueries(const char* inFilename, const char* outFilename, FNR_tree<long>
 		outfile << std::endl << std::endl;
 	}
 
-	std::cout << "   > Queries time  = " << std::right << std::setw(10);
+	std::cout << "   > Queries time  \t= " << std::right << std::setw(10);
 	std::cout << duration.count();
 	std::cout << " microseconds" << std::endl;
 	outfile.close();
@@ -235,26 +239,34 @@ int main(int argc, char* argv[])
 		FNR_tree<long> kk;
 
 		auto Nodes = new std::map<long, std::pair<int, int> >();
-		//chrono::high_resolution_clock::time_point start = chrono::high_resolution_clock::now();
+		auto start = std::chrono::high_resolution_clock::now();
+		std::cout << "Start read nodes" << std::endl;
 		readNodes(nodesFile, Nodes);
+		std::cout << "Start read edges" << std::endl;
 		readEdges(edgesFile, Nodes, &kk);
 
 		//kk.print();
 
 		auto start2 = std::chrono::high_resolution_clock::now();
+		std::cout << "Start read trajectories" << std::endl;
 		readTrajectories(trajectoriesFile, &kk);
 
-		kk.print();
+		//kk.print();
 
 		auto end = std::chrono::high_resolution_clock::now();
 
 		std::cout << "> FNR-Tree indicators:" << std::endl;
-		std::cout << "   > MEMORY USAGE  = " << std::right << std::setw(10);
+		std::cout << "   > MEMORY USAGE  \t= " << std::right << std::setw(10);
 		std::cout << kk.size() << " Bytes" << std::endl;
-		std::cout << "   > Building time = " << std::right << std::setw(10);
+		std::cout << "   > Building time \t= " << std::right << std::setw(10);
+		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+		std::cout << " microseconds" << std::endl;
+
+		std::cout << "   > Add traj. time \t= " << std::right << std::setw(10);
 		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start2).count();
 		std::cout << " microseconds" << std::endl;
 
+		std::cout << "Start read queries" << std::endl;
 		readQueries(queriesFile, outFile, &kk);
 
 		delete Nodes;

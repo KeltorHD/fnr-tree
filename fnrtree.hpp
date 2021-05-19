@@ -9,7 +9,7 @@
 #include <string>
 #include <set>
 
-#define DEBUG
+//#define DEBUG
 
 template <typename object_t>
 class FNR_tree

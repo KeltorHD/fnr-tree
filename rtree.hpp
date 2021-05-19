@@ -8,10 +8,11 @@
 #include <iostream>
 #include <functional>
 
-#ifdef DEBUG
+//#define RDEBUG
+
+#ifdef RDEBUG
 static int count_shared{ 0 };
-#endif // DEBUG
-static int count_shared{ 0 };
+#endif // RDEBUG
 
 
 #define R_template   template<typename data_type, typename coord_type, size_t num_dims, typename float_type, size_t max_nodes, size_t min_nodes>
@@ -109,19 +110,19 @@ private:
 		node(bool leaf)
 			: leaf(leaf)
 		{
-#ifdef DEBUG
+#ifdef RDEBUG
 			count_shared++;
-#endif // DEBUG
+#endif // RDEBUG
 
 			if (this->leaf) this->data = data_array_t{};
 			else this->data = child_array_ptr_t{};
 		}
 		~node()
 		{
-#ifdef DEBUG
+#ifdef RDEBUG
 			std::cout << (this->leaf ? "Лист " : "Узел ") << count_shared << " адрес " << this << " уничтожен" << std::endl;
 			count_shared--;
-#endif // DEBUG
+#endif // RDEBUG
 		}
 	};
 
