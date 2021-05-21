@@ -16,6 +16,10 @@
 void readNodes(const char* filename, std::map<long, std::pair<int, int> >* m) 
 {
 	std::ifstream infile(filename);
+	if (!infile.is_open())
+	{
+		std::cout << "not open file: " << filename << std::endl;
+	}
 	std::string line{};
 	while (std::getline(infile, line)) 
 	{
@@ -30,20 +34,22 @@ void readNodes(const char* filename, std::map<long, std::pair<int, int> >* m)
 void readEdges(const char* filename, std::map<long, std::pair<int, int> >* nodes, FNR_tree<long>* tree)
 {
 	std::ifstream infile(filename);
+	if (!infile.is_open())
+	{
+		std::cout << "not open file: " << filename << std::endl;
+	}
 	std::string line;
 	while (std::getline(infile, line)) 
 	{
 		std::istringstream iss(line);
-		long id, A, B; std::string name;
-		if (!(iss >> id >> A >> B/* >> name*/)) break;
+		long id, A, B; 
+		std::string name;
+		if (!(iss >> id >> A >> B >> name)) break;
 
-		//std::cout << "id edge: " << id << ", A-id: " << A << ", B-id: " << B << ", name" << name << std::endl;
 
 		std::pair<int, int> Acoord, Bcoord;
 		Acoord = nodes->find(A)->second;
-		//std::cout << "A: " << Acoord.first << ", " << Acoord.second << std::endl;
 		Bcoord = nodes->find(B)->second;
-		//std::cout << "B: " << Bcoord.first << ", " << Bcoord.second << std::endl;
 		tree->insert_line(Acoord.first, Acoord.second, Bcoord.first, Bcoord.second, name);
 	}
 }
@@ -53,23 +59,23 @@ void readTrajectories(const char* filename, FNR_tree<long>* tree)
 	std::map<long, std::pair<double, std::pair<int, int>>> Objects; // id -> (time, (x,y) )
 
 	std::ifstream infile(filename);
-	std::string line;
 	if (!infile.is_open())
 	{
-		std::cout << "not open file";
+		std::cout << "not open file: " << filename << std::endl;
 	}
+	std::string line;
 
 	while (std::getline(infile, line)) 
 	{
 		std::istringstream iss(line);
 		char cls; long id; double time;
 		int currX, currY;
-		int cID, nextX, nextY; double speed;
-		/*if (!(iss >> cls >> id >> time >> currX >> currY)) 
-			break;*/
-		if (!(iss >> cls >> id >> cID >>
+		/*int cID, nextX, nextY; double speed;*/
+		if (!(iss >> cls >> id >> time >> currX >> currY)) 
+			break;
+		/*if (!(iss >> cls >> id >> cID >>
 			time >> currX >> currY >>
-			speed >> nextX >> nextY)) break;
+			speed >> nextX >> nextY)) break;*/
 
 		if (cls == '0') /*начальные данные*/
 		{
@@ -92,7 +98,15 @@ void readQueries(const char* inFilename, const char* outFilename, FNR_tree<long>
 {
 	std::set<long>* resArray = new std::set<long>;
 	std::ifstream infile(inFilename);
+	if (!infile.is_open())
+	{
+		std::cout << "not open file: " << inFilename << std::endl;
+	}
 	std::ofstream outfile(outFilename);
+	if (!outfile.is_open())
+	{
+		std::cout << "not open file: " << outFilename << std::endl;
+	}
 	std::string line;
 	int cont = 1;
 
@@ -134,7 +148,7 @@ int main(int argc, char* argv[])
 		if (argc != 6)
 		{
 			std::cout << "Usage: ./fnr-tree.exe [nodesFile] [edgesFile] [trajectoriesFile] [queriesFile] [outFile]" << std::endl;
-			return -1;
+			return 1;
 		}
 
 		const char* nodesFile = argv[1];
@@ -158,7 +172,7 @@ int main(int argc, char* argv[])
 		std::cout << "Start read trajectories" << std::endl;
 		readTrajectories(trajectoriesFile, &kk);
 
-		//kk.print();
+		kk.print();
 
 		auto end = std::chrono::high_resolution_clock::now();
 
